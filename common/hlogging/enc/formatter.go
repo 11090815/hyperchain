@@ -32,7 +32,6 @@ func ParseFormat(spec string) ([]Formatter, error) {
 		var format string
 		if formatStart >= 0 {
 			format = spec[formatStart:formatEnd]
-			fmt.Println(format)
 		}
 
 		formatter, err := NewFormatter(spec[verbStart:verbEnd], format)
@@ -254,7 +253,7 @@ func (ff funcFormatter) Format(w io.Writer, entry zapcore.Entry, fields []zapcor
 	}
 
 	fname := f.Name()
-	if ff.kind == "longFunc" {
+	if ff.kind == "longfunc" {
 		fmt.Fprintf(w, ff.formatVerb, fname)
 		return
 	}
