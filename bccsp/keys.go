@@ -1,4 +1,4 @@
-package sw
+package bccsp
 
 import (
 	"crypto/ecdsa"

@@ -1,20 +1,18 @@
-package sw
+package bccsp
 
 import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
-
-	"github.com/11090815/hyperchain/bccsp"
 )
 
 type KeyImporter interface {
-	KeyImport(raw interface{}, opts bccsp.KeyImportOpts) (bccsp.Key, error)
+	KeyImport(raw interface{}, opts KeyImportOpts) (Key, error)
 }
 
 type aesKeyImporter struct{}
 
-func (*aesKeyImporter) KeyImport(raw interface{}, opts bccsp.KeyImportOpts) (bccsp.Key, error) {
+func (*aesKeyImporter) KeyImport(raw interface{}, opts KeyImportOpts) (Key, error) {
 	aesRaw, ok := raw.([]byte)
 	if !ok {
 		return nil, fmt.Errorf("invalid aes key type, want bytes, but got [%T]", raw)
@@ -33,7 +31,7 @@ func (*aesKeyImporter) KeyImport(raw interface{}, opts bccsp.KeyImportOpts) (bcc
 
 type ecdsaPKIXPublicKeyImporter struct{}
 
-func (*ecdsaPKIXPublicKeyImporter) KeyImport(raw interface{}, opts bccsp.KeyImportOpts) (bccsp.Key, error) {
+func (*ecdsaPKIXPublicKeyImporter) KeyImport(raw interface{}, opts KeyImportOpts) (Key, error) {
 	der, ok := raw.([]byte)
 	if !ok {
 		return nil, fmt.Errorf("invalid ecdsa public key material, want bytes, but got [%T]", raw)
@@ -58,7 +56,7 @@ func (*ecdsaPKIXPublicKeyImporter) KeyImport(raw interface{}, opts bccsp.KeyImpo
 
 type ecdsaPrivateKeyImporter struct{}
 
-func (*ecdsaPrivateKeyImporter) KeyImport(raw interface{}, opts bccsp.KeyImportOpts) (bccsp.Key, error) {
+func (*ecdsaPrivateKeyImporter) KeyImport(raw interface{}, opts KeyImportOpts) (Key, error) {
 	der, ok := raw.([]byte)
 	if !ok {
 		return nil, fmt.Errorf("invalid ecdsa private key material, want bytes, but got [%T]", raw)
@@ -83,7 +81,7 @@ func (*ecdsaPrivateKeyImporter) KeyImport(raw interface{}, opts bccsp.KeyImportO
 
 // type ecdsaGoPublicKeyImporter struct{}
 
-// func (*ecdsaGoPublicKeyImporter) KeyImport(raw interface{}, opts bccsp.KeyImportOpts) (bccsp.Key, error) {
+// func (*ecdsaGoPublicKeyImporter) KeyImport(raw interface{}, opts KeyImportOpts) (Key, error) {
 // 	key, ok := raw.(*ecdsa.PublicKey)
 // 	if !ok {
 // 		return nil, fmt.Errorf("invalid go ecdsa public key material, want *ecdsa.PublicKey, but got [%T]", raw)
@@ -96,7 +94,7 @@ func (*ecdsaPrivateKeyImporter) KeyImport(raw interface{}, opts bccsp.KeyImportO
 // 	csp *CSP
 // }
 
-// func (ki *x509PublicKeyImporter) KeyImport(raw interface{}, opts bccsp.KeyImportOpts) (bccsp.Key, error) {
+// func (ki *x509PublicKeyImporter) KeyImport(raw interface{}, opts KeyImportOpts) (Key, error) {
 // 	x509Cert, ok := raw.(*x509.Certificate)
 // 	if !ok {
 // 		return nil, fmt.Errorf("invalid x509 public key material, want *x509.Certificate, but got [%T]", raw)
@@ -106,7 +104,7 @@ func (*ecdsaPrivateKeyImporter) KeyImport(raw interface{}, opts bccsp.KeyImportO
 
 // 	switch pk := pk.(type) {
 // 	case *ecdsa.PublicKey:
-// 		return ki.csp.KeyImporters[reflect.TypeOf(&bccsp.ECDSAGoPublicKeyImportOpts{})].KeyImport(pk, &bccsp.ECDSAGoPublicKeyImportOpts{Temporary: opts.Ephemeral()})
+// 		return ki.csp.KeyImporters[reflect.TypeOf(&ECDSAGoPublicKeyImportOpts{})].KeyImport(pk, &ECDSAGoPublicKeyImportOpts{Temporary: opts.Ephemeral()})
 // 	default:
 // 		return nil, fmt.Errorf("x509 certificate public key type not recognized, only support *ecdsa.PublicKey, but got [%T]", pk)
 // 	}

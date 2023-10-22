@@ -1,13 +1,14 @@
-package sw
+package bccsp
 
 import (
 	"crypto/sha256"
 	"reflect"
-
-	"github.com/11090815/hyperchain/bccsp"
 )
 
-func NewBCCSP(ks bccsp.KeyStore) (bccsp.BCCSP, error) {
+func NewBCCSP(ks KeyStore) (BCCSP, error) {
+	if ks == nil {
+		ks = NewFakeKeyStore()
+	}
 	csp, err := NewCSP(ks)
 	if err != nil {
 		return nil, err
@@ -27,11 +28,11 @@ func NewBCCSP(ks bccsp.KeyStore) (bccsp.BCCSP, error) {
 	csp.AddWrapper(reflect.TypeOf(&ecdsaPublicKey{}), &ecdsaPublicKeyVerifier{})
 
 	// 设置 Hasher。
-	csp.AddWrapper(reflect.TypeOf(&bccsp.SHA256Opts{}), &hasher{hash: sha256.New})
+	csp.AddWrapper(reflect.TypeOf(&SHA256Opts{}), &hasher{hash: sha256.New})
 
 	// 设置密钥生成器 KeyGenerator。
-	csp.AddWrapper(reflect.TypeOf(&bccsp.ECDSAKeyGenOpts{}), &ecdsaKeyGenerator{})
-	csp.AddWrapper(reflect.TypeOf(&bccsp.AESKeyGenOpts{}), &aesKeyGenerator{})
+	csp.AddWrapper(reflect.TypeOf(&ECDSAKeyGenOpts{}), &ecdsaKeyGenerator{})
+	csp.AddWrapper(reflect.TypeOf(&AESKeyGenOpts{}), &aesKeyGenerator{})
 
 	// 设置密钥衍生器 KeyDeriver。
 	csp.AddWrapper(reflect.TypeOf(&ecdsaPublicKey{}), &ecdsaPublicKeyDeriver{})
@@ -39,9 +40,9 @@ func NewBCCSP(ks bccsp.KeyStore) (bccsp.BCCSP, error) {
 	csp.AddWrapper(reflect.TypeOf(&aesKey{}), &aesKeyDeriver{})
 
 	// 设置密钥导入器 KeyImporter。
-	csp.AddWrapper(reflect.TypeOf(&bccsp.AESKeyImportOpts{}), &aesKeyImporter{})
-	csp.AddWrapper(reflect.TypeOf(&bccsp.ECDSAPKIXPublicKeyImportOpts{}), &ecdsaPKIXPublicKeyImporter{})
-	csp.AddWrapper(reflect.TypeOf(&bccsp.ECDSAPrivateKeyImportOpts{}), &ecdsaPrivateKeyImporter{})
+	csp.AddWrapper(reflect.TypeOf(&AESKeyImportOpts{}), &aesKeyImporter{})
+	csp.AddWrapper(reflect.TypeOf(&ECDSAPKIXPublicKeyImportOpts{}), &ecdsaPKIXPublicKeyImporter{})
+	csp.AddWrapper(reflect.TypeOf(&ECDSAPrivateKeyImportOpts{}), &ecdsaPrivateKeyImporter{})
 
 	return csp, nil
 }

@@ -1,4 +1,4 @@
-package sw
+package bccsp
 
 import (
 	"crypto/ecdsa"
@@ -10,7 +10,6 @@ import (
 	"hash"
 	"testing"
 
-	"github.com/11090815/hyperchain/bccsp"
 	"github.com/stretchr/testify/require"
 )
 
@@ -29,7 +28,7 @@ func TestECDSAKeyDeriv(t *testing.T) {
 	require.True(t, ok)
 
 	key := &ecdsaPrivateKey{privateKey: privateKey}
-	opts := bccsp.ECDSAKeyDerivOpts{Expansion: []byte{1, 2, 3, 4}}
+	opts := ECDSAKeyDerivOpts{Expansion: []byte{1, 2, 3, 4}}
 
 	deriver := &ecdsaPrivateKeyDeriver{}
 
@@ -57,19 +56,19 @@ func TestDerivAESKey(t *testing.T) {
 	aesK := &aesKey{key: key}
 	deriver := &aesKeyDeriver{}
 
-	opts1 := &bccsp.AESKeyDerivOpts{Arg: []byte{'a', 'b', 'c', 1, 2, 3}}
+	opts1 := &AESKeyDerivOpts{Arg: []byte{'a', 'b', 'c', 1, 2, 3}}
 	derivedKey1, err := deriver.KeyDeriv(aesK, opts1)
 	require.NoError(t, err)
 	derivedAESKey, ok := derivedKey1.(*aesKey)
 	require.True(t, ok)
 
 	encrypter := &aescbcpkcs7Encryptor{}
-	opts := &bccsp.AESCBCPKCS7ModeOpts{PRNG: rand.Reader}
+	opts := &AESCBCPKCS7ModeOpts{PRNG: rand.Reader}
 	ciphertext, err := encrypter.Encrypt(derivedAESKey, plaintext, opts)
 	require.NoError(t, err)
 
 	decrypter := &aescbcpkcs7Decryptor{}
-	decrypted, err := decrypter.Decrypt(derivedAESKey, ciphertext, nil)
+	decrypted, err := decrypter.Decrypt(derivedAESKey, ciphertext)
 	require.NoError(t, err)
 	require.Equal(t, plaintext, decrypted)
 }

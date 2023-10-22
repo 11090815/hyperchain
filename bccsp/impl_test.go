@@ -1,4 +1,4 @@
-package sw
+package bccsp
 
 // func InitializeCSP() *CSP {
 // 	csp, err := NewCSP(nil)

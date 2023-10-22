@@ -1,4 +1,4 @@
-package sw
+package bccsp
 
 import (
 	"bytes"
@@ -9,39 +9,37 @@ import (
 	"errors"
 	"fmt"
 	"io"
-
-	"github.com/11090815/hyperchain/bccsp"
 )
 
 type Encrypter interface {
-	Encrypt(key bccsp.Key, plaintext []byte, opts bccsp.EncryptOpts) (ciphertext []byte, err error)
+	Encrypt(key Key, plaintext []byte, opts EncryptOpts) (ciphertext []byte, err error)
 }
 
 type Decrypter interface {
-	Decrypt(key bccsp.Key, ciphertext []byte, opts bccsp.DecryptOpts) (plaintext []byte, err error)
+	Decrypt(key Key, ciphertext []byte) (plaintext []byte, err error)
 }
 
 type aescbcpkcs7Encryptor struct{}
 
-func (e *aescbcpkcs7Encryptor) Encrypt(key bccsp.Key, plaintext []byte, opts bccsp.EncryptOpts) ([]byte, error) {
+func (e *aescbcpkcs7Encryptor) Encrypt(key Key, plaintext []byte, opts EncryptOpts) ([]byte, error) {
 	switch o := opts.(type) {
-	case *bccsp.AESCBCPKCS7ModeOpts:
+	case *AESCBCPKCS7ModeOpts:
 		if len(o.IV) != 0 {
 			return AESCBCPKCS7EncryptWithIV(o.IV, key.(*aesKey).key, plaintext)
 		} else if o.PRNG != nil {
 			return AESCBCPKCS7EncryptWithRand(o.PRNG, key.(*aesKey).key, plaintext)
 		}
 		return AESCBCPKCS7Encrypt(key.(*aesKey).key, plaintext)
-	case bccsp.AESCBCPKCS7ModeOpts:
+	case AESCBCPKCS7ModeOpts:
 		return e.Encrypt(key, plaintext, &o)
 	default:
-		return nil, fmt.Errorf("invalid option, want [bccsp.AESCBCPKCS7ModeOpts], but got [%T]", o)
+		return nil, fmt.Errorf("invalid option, want [AESCBCPKCS7ModeOpts], but got [%T]", o)
 	}
 }
 
 type aescbcpkcs7Decryptor struct{}
 
-func (*aescbcpkcs7Decryptor) Decrypt(key bccsp.Key, ciphertext []byte, opts bccsp.DecryptOpts) ([]byte, error) {
+func (*aescbcpkcs7Decryptor) Decrypt(key Key, ciphertext []byte) ([]byte, error) {
 	return AESCBCPKCS7Decrypt(key.(*aesKey).key, ciphertext)
 }
 
@@ -217,6 +215,6 @@ func (key *aesKey) IsPrivate() bool {
 	return true
 }
 
-func (key *aesKey) PublicKey() (bccsp.Key, error) {
+func (key *aesKey) PublicKey() (Key, error) {
 	return nil, errors.New("aes key doesn't have public key")
 }

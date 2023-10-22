@@ -1,16 +1,14 @@
-package sw
+package bccsp
 
 import (
 	"errors"
 	"fmt"
 	"hash"
 	"reflect"
-
-	"github.com/11090815/hyperchain/bccsp"
 )
 
 type CSP struct {
-	ks bccsp.KeyStore
+	ks KeyStore
 
 	KeyGenerators map[reflect.Type]KeyGenerator
 	KeyDerivers   map[reflect.Type]KeyDeriver
@@ -22,7 +20,7 @@ type CSP struct {
 	Hashers       map[reflect.Type]Hasher
 }
 
-func NewCSP(keyStore bccsp.KeyStore) (*CSP, error) {
+func NewCSP(keyStore KeyStore) (*CSP, error) {
 	if keyStore == nil {
 		return nil, errors.New("if you want to new a crypto service provider, you should provide a non-nil key store")
 	}
@@ -40,11 +38,11 @@ func NewCSP(keyStore bccsp.KeyStore) (*CSP, error) {
 	}, nil
 }
 
-func (csp *CSP) GetKey(ski []byte) (key bccsp.Key, err error) {
+func (csp *CSP) GetKey(ski []byte) (key Key, err error) {
 	return csp.ks.GetKey(ski)
 }
 
-func (csp *CSP) KeyGen(opts bccsp.KeyGenOpts) (key bccsp.Key, err error) {
+func (csp *CSP) KeyGen(opts KeyGenOpts) (key Key, err error) {
 	if opts == nil {
 		return nil, errors.New("if you want to generate a key, you should provide a non-nil option")
 	}
@@ -66,7 +64,7 @@ func (csp *CSP) KeyGen(opts bccsp.KeyGenOpts) (key bccsp.Key, err error) {
 	return key, nil
 }
 
-func (csp *CSP) KeyDeriv(key bccsp.Key, opts bccsp.KeyDerivOpts) (dkey bccsp.Key, err error) {
+func (csp *CSP) KeyDeriv(key Key, opts KeyDerivOpts) (dkey Key, err error) {
 	if opts == nil {
 		return nil, errors.New("if you want to deriv a key, you should provide a non-nil option")
 	}
@@ -92,7 +90,7 @@ func (csp *CSP) KeyDeriv(key bccsp.Key, opts bccsp.KeyDerivOpts) (dkey bccsp.Key
 	return key, nil
 }
 
-func (csp *CSP) KeyImport(raw interface{}, opts bccsp.KeyImportOpts) (key bccsp.Key, err error) {
+func (csp *CSP) KeyImport(raw interface{}, opts KeyImportOpts) (key Key, err error) {
 	if opts == nil {
 		return nil, errors.New("if you want to import a key, you should provide non-nil option")
 	}
@@ -114,7 +112,7 @@ func (csp *CSP) KeyImport(raw interface{}, opts bccsp.KeyImportOpts) (key bccsp.
 	return key, nil
 }
 
-func (csp *CSP) Hash(msg []byte, opts bccsp.HashOpts) (digest []byte, err error) {
+func (csp *CSP) Hash(msg []byte, opts HashOpts) (digest []byte, err error) {
 	if opts == nil {
 		return nil, errors.New("if you want to get the digest of some message, you should provide a non-nil option")
 	}
@@ -128,7 +126,7 @@ func (csp *CSP) Hash(msg []byte, opts bccsp.HashOpts) (digest []byte, err error)
 	return hasher.Hash(msg, opts)
 }
 
-func (csp *CSP) GetHash(opts bccsp.HashOpts) (h hash.Hash, err error) {
+func (csp *CSP) GetHash(opts HashOpts) (h hash.Hash, err error) {
 	if opts == nil {
 		return nil, errors.New("if you want to get a hash function, you should provide a non-nil option")
 	}
@@ -142,7 +140,7 @@ func (csp *CSP) GetHash(opts bccsp.HashOpts) (h hash.Hash, err error) {
 	return hasher.GetHash(opts)
 }
 
-func (csp *CSP) Sign(key bccsp.Key, digest []byte, opts bccsp.SignerOpts) (signature []byte, err error) {
+func (csp *CSP) Sign(key Key, digest []byte) (signature []byte, err error) {
 	if key == nil {
 		return nil, fmt.Errorf("if you want to sign the digest of some message, you should provide a key")
 	}
@@ -153,10 +151,10 @@ func (csp *CSP) Sign(key bccsp.Key, digest []byte, opts bccsp.SignerOpts) (signa
 		return nil, fmt.Errorf("no signer for key [%T]", key)
 	}
 
-	return signer.Sign(key, digest, opts)
+	return signer.Sign(key, digest)
 }
 
-func (csp *CSP) Verify(key bccsp.Key, signature, digest []byte, opts bccsp.SignerOpts) (valid bool, err error) {
+func (csp *CSP) Verify(key Key, signature, digest []byte) (valid bool, err error) {
 	if key == nil {
 		return false, fmt.Errorf("if you want to verify the signature, you should provide a key")
 	}
@@ -167,10 +165,10 @@ func (csp *CSP) Verify(key bccsp.Key, signature, digest []byte, opts bccsp.Signe
 		return false, fmt.Errorf("no verifier for key [%T]", key)
 	}
 
-	return verifier.Verify(key, signature, digest, opts)
+	return verifier.Verify(key, signature, digest)
 }
 
-func (csp *CSP) Encrypt(key bccsp.Key, plaintext []byte, opts bccsp.EncryptOpts) ([]byte, error) {
+func (csp *CSP) Encrypt(key Key, plaintext []byte, opts EncryptOpts) ([]byte, error) {
 	if key == nil {
 		return nil, fmt.Errorf("if you want to encrypt plaintext, you should provide a key")
 	}
@@ -184,7 +182,7 @@ func (csp *CSP) Encrypt(key bccsp.Key, plaintext []byte, opts bccsp.EncryptOpts)
 	return encrypter.Encrypt(key, plaintext, opts)
 }
 
-func (csp *CSP) Decrypt(key bccsp.Key, ciphertext []byte, opts bccsp.DecryptOpts) (plaintext []byte, err error) {
+func (csp *CSP) Decrypt(key Key, ciphertext []byte) (plaintext []byte, err error) {
 	if key == nil {
 		return nil, fmt.Errorf("if you want to decrypt ciphertext, you should provide a key")
 	}
@@ -195,7 +193,7 @@ func (csp *CSP) Decrypt(key bccsp.Key, ciphertext []byte, opts bccsp.DecryptOpts
 	}
 
 	// 根据密钥种类选择解密器。
-	if plaintext, err = decrypter.Decrypt(key, ciphertext, opts); err != nil {
+	if plaintext, err = decrypter.Decrypt(key, ciphertext); err != nil {
 		return nil, fmt.Errorf("failed decrypting ciphertext: [%s]", err.Error())
 	}
 

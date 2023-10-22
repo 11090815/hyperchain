@@ -1,4 +1,4 @@
-package sw
+package bccsp
 
 import (
 	"crypto/ecdsa"
@@ -7,25 +7,23 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-
-	"github.com/11090815/hyperchain/bccsp"
 )
 
 type KeyDeriver interface {
-	KeyDeriv(key bccsp.Key, opts bccsp.KeyDerivOpts) (dkey bccsp.Key, err error)
+	KeyDeriv(key Key, opts KeyDerivOpts) (dkey Key, err error)
 }
 
 type ecdsaPublicKeyDeriver struct{}
 
-// KeyDeriv 提供的 bccsp.Key 的实际类型必须是 *ecdsaPublicKey。
-func (*ecdsaPublicKeyDeriver) KeyDeriv(key bccsp.Key, opts bccsp.KeyDerivOpts) (bccsp.Key, error) {
+// KeyDeriv 提供的 Key 的实际类型必须是 *ecdsaPublicKey。
+func (*ecdsaPublicKeyDeriver) KeyDeriv(key Key, opts KeyDerivOpts) (Key, error) {
 	if opts == nil {
 		return nil, errors.New("invalid opts: [it shouldn't be nil]")
 	}
 
-	reRandOpts, ok := opts.(*bccsp.ECDSAKeyDerivOpts)
+	reRandOpts, ok := opts.(*ECDSAKeyDerivOpts)
 	if !ok {
-		return nil, fmt.Errorf("want *bccsp.ECDSAReRandOpts, but got [%T]", opts)
+		return nil, fmt.Errorf("want *ECDSAReRandOpts, but got [%T]", opts)
 	}
 
 	publicKey := key.(*ecdsaPublicKey)
@@ -60,15 +58,15 @@ func (*ecdsaPublicKeyDeriver) KeyDeriv(key bccsp.Key, opts bccsp.KeyDerivOpts) (
 
 type ecdsaPrivateKeyDeriver struct{}
 
-// KeyDeriv 传入的 bccsp.Key 的类型必须是 *ecdsaPublicKey。
-func (*ecdsaPrivateKeyDeriver) KeyDeriv(key bccsp.Key, opts bccsp.KeyDerivOpts) (bccsp.Key, error) {
+// KeyDeriv 传入的 Key 的类型必须是 *ecdsaPublicKey。
+func (*ecdsaPrivateKeyDeriver) KeyDeriv(key Key, opts KeyDerivOpts) (Key, error) {
 	if opts == nil {
 		return nil, errors.New("invalid opts: [it shouldn't be nil]")
 	}
 
-	reRandOpts, ok := opts.(*bccsp.ECDSAKeyDerivOpts)
+	reRandOpts, ok := opts.(*ECDSAKeyDerivOpts)
 	if !ok {
-		return nil, fmt.Errorf("want *bccsp.ECDSAReRandOpts, but got [%T]", opts)
+		return nil, fmt.Errorf("want *ECDSAReRandOpts, but got [%T]", opts)
 	}
 
 	privateKey := key.(*ecdsaPrivateKey)
@@ -107,17 +105,17 @@ func (*ecdsaPrivateKeyDeriver) KeyDeriv(key bccsp.Key, opts bccsp.KeyDerivOpts) 
 
 type aesKeyDeriver struct{}
 
-// KeyDeriv 传入的 bccsp.Key 必须是 *aesPrivateKey
-func (*aesKeyDeriver) KeyDeriv(key bccsp.Key, opts bccsp.KeyDerivOpts) (bccsp.Key, error) {
+// KeyDeriv 传入的 Key 必须是 *aesPrivateKey
+func (*aesKeyDeriver) KeyDeriv(key Key, opts KeyDerivOpts) (Key, error) {
 	if opts == nil {
 		return nil, errors.New("invalid opts: [it shouldn't be nil]")
 	}
 
 	aesK := key.(*aesKey)
 
-	reRandOpts, ok := opts.(*bccsp.AESKeyDerivOpts)
+	reRandOpts, ok := opts.(*AESKeyDerivOpts)
 	if !ok {
-		return nil, fmt.Errorf("want *bccsp.AESKeyDerivOpts, but got [%T]", opts)
+		return nil, fmt.Errorf("want *AESKeyDerivOpts, but got [%T]", opts)
 	}
 
 	mac := hmac.New(sha256.New, aesK.key)

@@ -1,4 +1,4 @@
-package sw
+package bccsp
 
 import (
 	"crypto/ecdsa"
@@ -26,17 +26,17 @@ func TestSignAndVerify(t *testing.T) {
 	digest := hash.Sum(nil)
 
 	signer := &ecdsaSigner{}
-	signature, err := signer.Sign(ePrivateKey, digest, nil)
+	signature, err := signer.Sign(ePrivateKey, digest)
 	require.NoError(t, err)
 
 	privateVerifier := &ecdsaPrivateKeyVerifier{}
 	publicVerifier := &ecdsaPublicKeyVerifier{}
 
-	v1, err := privateVerifier.Verify(ePrivateKey, signature, digest, nil)
+	v1, err := privateVerifier.Verify(ePrivateKey, signature, digest)
 	require.NoError(t, err)
 	require.True(t, v1)
 
-	v2, err := publicVerifier.Verify(ePublicKey, signature, digest, nil)
+	v2, err := publicVerifier.Verify(ePublicKey, signature, digest)
 	require.NoError(t, err)
 	require.True(t, v2)
 }

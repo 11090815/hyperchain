@@ -1,4 +1,4 @@
-package sw
+package bccsp
 
 import (
 	"bytes"
@@ -12,8 +12,13 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/11090815/hyperchain/bccsp"
 	"github.com/11090815/hyperchain/common/hlogging"
+)
+
+const (
+	aesKeySuffix          = "aes_key"
+	ecdsaPrivateKeySuffix = "private_key"
+	ecdsaPublicKeySuffix  = "public_key"
 )
 
 type fileBasedKeyStore struct {
@@ -24,7 +29,7 @@ type fileBasedKeyStore struct {
 	mutex    sync.Mutex
 }
 
-func NewFileBasedKeyStore(path string, readOnly bool) (bccsp.KeyStore, error) {
+func NewFileBasedKeyStore(path string, readOnly bool) (KeyStore, error) {
 	ks := &fileBasedKeyStore{
 		logger: hlogging.MustGetLogger("bccsp_ks"),
 	}
@@ -76,7 +81,7 @@ func (ks *fileBasedKeyStore) ReadOnly() bool {
 }
 
 // GetKey 如果目录里同时存在 ecdsa 的公钥私钥对，即 sk 是 pk 对应的私钥，那么 sk 与 pk 的 ski 是一样的，在此情况下，根据 ski 获取 key，默认情况下获取到的是 ecdsa 的私钥。
-func (ks *fileBasedKeyStore) GetKey(ski []byte) (key bccsp.Key, err error) {
+func (ks *fileBasedKeyStore) GetKey(ski []byte) (key Key, err error) {
 	if len(ski) == 0 {
 		return nil, errors.New("if you want to get a key, you should provide a non-nil ski")
 	}
@@ -86,19 +91,19 @@ func (ks *fileBasedKeyStore) GetKey(ski []byte) (key bccsp.Key, err error) {
 	suffix := ks.getSuffix(alias)
 
 	switch suffix {
-	case "aes_key":
+	case aesKeySuffix:
 		aesK, err := ks.loadKey(alias)
 		if err != nil {
 			return nil, err
 		}
 		return &aesKey{key: aesK, exportable: false}, nil
-	case "public_key":
+	case ecdsaPublicKeySuffix:
 		pk, err := ks.loadPublicKey(alias)
 		if err != nil {
 			return nil, err
 		}
 		return &ecdsaPublicKey{publicKey: pk.(*ecdsa.PublicKey)}, nil
-	case "private_key":
+	case ecdsaPrivateKeySuffix:
 		sk, err := ks.loadPrivateKey(alias)
 		if err != nil {
 			return nil, err
@@ -109,9 +114,9 @@ func (ks *fileBasedKeyStore) GetKey(ski []byte) (key bccsp.Key, err error) {
 	}
 }
 
-func (ks *fileBasedKeyStore) StoreKey(key bccsp.Key) (err error) {
+func (ks *fileBasedKeyStore) StoreKey(key Key) (err error) {
 	if ks.readOnly {
-		return errors.New("the key store is readonly!!!")
+		return errors.New("the key store is readonly")
 	}
 
 	if key == nil {
@@ -139,7 +144,7 @@ func (ks *fileBasedKeyStore) StoreKey(key bccsp.Key) (err error) {
 }
 
 // searchKeyForSKI 根据 ski 搜寻 ecdsa 的私钥。
-func (ks *fileBasedKeyStore) searchKeyForSKI(ski []byte) (key bccsp.Key, err error) {
+func (ks *fileBasedKeyStore) searchKeyForSKI(ski []byte) (key Key, err error) {
 	files, _ := os.ReadDir(ks.path)
 
 	for _, f := range files {
@@ -187,14 +192,14 @@ func (ks *fileBasedKeyStore) getSuffix(alias string) string {
 	files, _ := os.ReadDir(ks.path)
 	for _, f := range files {
 		if strings.HasPrefix(f.Name(), alias) {
-			if strings.HasSuffix(f.Name(), "private_key") {
-				return "private_key"
+			if strings.HasSuffix(f.Name(), ecdsaPrivateKeySuffix) {
+				return ecdsaPrivateKeySuffix
 			}
-			if strings.HasSuffix(f.Name(), "public_key") {
-				return "public_key"
+			if strings.HasSuffix(f.Name(), ecdsaPublicKeySuffix) {
+				return ecdsaPublicKeySuffix
 			}
-			if strings.HasSuffix(f.Name(), "aes_key") {
-				return "aes_key"
+			if strings.HasSuffix(f.Name(), aesKeySuffix) {
+				return aesKeySuffix
 			}
 			break
 		}
@@ -210,7 +215,7 @@ func (ks *fileBasedKeyStore) storePrivateKey(alias string, privateKey interface{
 		return err
 	}
 
-	path := ks.getPathForAlias(alias, "private_key")
+	path := ks.getPathForAlias(alias, ecdsaPrivateKeySuffix)
 	if err = os.WriteFile(path, raw, os.FileMode(0600)); err != nil {
 		ks.logger.Errorf("Failed storing private key [%s]: [%s]", alias, err.Error())
 		return err
@@ -228,7 +233,7 @@ func (ks *fileBasedKeyStore) storePublicKey(alias string, publicKey interface{})
 		return err
 	}
 
-	path := ks.getPathForAlias(alias, "public_key")
+	path := ks.getPathForAlias(alias, ecdsaPublicKeySuffix)
 	if err = os.WriteFile(path, raw, os.FileMode(0600)); err != nil {
 		ks.logger.Errorf("Failed storing public key [%s]: [%s]", alias, err.Error())
 		return err
@@ -240,7 +245,7 @@ func (ks *fileBasedKeyStore) storePublicKey(alias string, publicKey interface{})
 
 // storeKey 存储 aes 密钥。
 func (ks *fileBasedKeyStore) storeKey(alias string, key []byte) error {
-	path := ks.getPathForAlias(alias, "aes_key")
+	path := ks.getPathForAlias(alias, aesKeySuffix)
 	pem := aesToPEM(key)
 
 	err := os.WriteFile(path, pem, os.FileMode(0600))
@@ -255,7 +260,7 @@ func (ks *fileBasedKeyStore) storeKey(alias string, key []byte) error {
 
 // loadPrivateKey 加载 ecdsa 私钥。
 func (ks *fileBasedKeyStore) loadPrivateKey(alias string) (interface{}, error) {
-	path := ks.getPathForAlias(alias, "private_key")
+	path := ks.getPathForAlias(alias, ecdsaPrivateKeySuffix)
 
 	raw, err := os.ReadFile(path)
 	if err != nil {
@@ -275,7 +280,7 @@ func (ks *fileBasedKeyStore) loadPrivateKey(alias string) (interface{}, error) {
 
 // loadPublicKey 加载 ecdsa 公钥。
 func (ks *fileBasedKeyStore) loadPublicKey(alias string) (interface{}, error) {
-	path := ks.getPathForAlias(alias, "public_key")
+	path := ks.getPathForAlias(alias, ecdsaPublicKeySuffix)
 
 	raw, err := os.ReadFile(path)
 	if err != nil {
@@ -295,7 +300,7 @@ func (ks *fileBasedKeyStore) loadPublicKey(alias string) (interface{}, error) {
 
 // loadKey 加载 aes 密钥。
 func (ks *fileBasedKeyStore) loadKey(alias string) ([]byte, error) {
-	path := ks.getPathForAlias(alias, "aes_key")
+	path := ks.getPathForAlias(alias, aesKeySuffix)
 
 	pem, err := os.ReadFile(path)
 	if err != nil {
@@ -357,4 +362,26 @@ func dirEmpty(path string) (bool, error) {
 		return true, nil
 	}
 	return false, err
+}
+
+/*** 🐋 ***/
+
+// 虚假的 KeyStore
+
+type fakeKeyStore struct{}
+
+func NewFakeKeyStore() *fakeKeyStore {
+	return &fakeKeyStore{}
+}
+
+func (ks *fakeKeyStore) ReadOnly() bool {
+	return true
+}
+
+func (ks *fakeKeyStore) GetKey(ski []byte) (Key, error) {
+	return nil, errors.New("key is not found, this is a fake key store")
+}
+
+func (ks *fakeKeyStore) StoreKey(key Key) error {
+	return errors.New("cannot store key, this is a fake key store")
 }

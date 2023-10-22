@@ -1,22 +1,52 @@
 package bccsp
 
 import (
-	"crypto"
 	"hash"
 	"io"
 )
 
 type BCCSP interface {
+	// KeyGen 提供选项，生成与选项对应的密钥：
+	//	- ECDSAKeyGenOpts：&ecdsaPrivateKey{}
+	//	- AESKeyGenOpts：&aesKey{}
 	KeyGen(opts KeyGenOpts) (Key, error)
+
+	// KeyDeriv 根据密钥衍生算法衍生出新的密钥，需要提供选项，目前支持的选项：
+	//	- AESKeyDerivOpts：衍生出新的 AES 密钥
+	//	- ECDSAKeyDerivOpts：衍生出新的 ECDSA 密钥
 	KeyDeriv(key Key, opts KeyDerivOpts) (Key, error)
+
+	// KeyImport 导入密钥，需要提供选项，目前支持的选项：
+	//	- ECDSAPKIXPublicKeyImportOpts：导入 ECDSA 公钥
+	//	- ECDSAPrivateKeyImportOpts：导入 ECDSA 私钥
+	//	- AESKeyImportOpts：导入 AES 密钥
 	KeyImport(raw interface{}, opts KeyImportOpts) (Key, error)
+
+	// GetKey 根据密钥的唯一标识符获取密钥。
 	GetKey(ski []byte) (Key, error)
+
+	// Hash 根据提供的选项，直接对消息进行哈希运算，得到消息的摘要，目前仅支持的选项是：
+	//	- SHA256Opts：生成 256 比特的消息摘要。
 	Hash(msg []byte, opts HashOpts) ([]byte, error)
+
+	// GetHash 获得一个哈希函数，用于计算消息的哈希值，传入的选项目前仅支持：
+	//	- SHA256Opts：获得一个 SHA256 哈希函数的实例
 	GetHash(opts HashOpts) (hash.Hash, error)
-	Sign(key Key, digest []byte, opts SignerOpts) ([]byte, error)
-	Verify(key Key, signature, digest []byte, opts SignerOpts) (bool, error)
+
+	// Sign 根据提供的签名密钥，对消息摘要进行签名。
+	Sign(key Key, digest []byte) ([]byte, error)
+
+	// Verify 根据提供的密钥：
+	//	- *ecdsaPrivateKey：提取其中的公钥，用公钥验证签名的合法性
+	//	- *ecdsaPublickey：直接用公钥验证签名的合法性
+	Verify(key Key, signature, digest []byte) (bool, error)
+
+	// Encrypt 根据提供的密钥对明文进行加密获得密文，需要提供选项 EncryptOpts，目前仅支持：
+	//	- AESCBCPKCS7ModeOpts：要么提供初始向量，要么提供伪随机数生成器，辅助加密过程
 	Encrypt(key Key, plaintext []byte, opts EncryptOpts) ([]byte, error)
-	Decrypt(key Key, ciphertext []byte, opts DecryptOpts) ([]byte, error)
+
+	// Decrypt 根据提供的密钥对密文进行解密。
+	Decrypt(key Key, ciphertext []byte) ([]byte, error)
 }
 
 type Key interface {
@@ -56,13 +86,6 @@ type EncryptOpts interface{}
 type AESCBCPKCS7ModeOpts struct {
 	IV   []byte
 	PRNG io.Reader
-}
-
-// DecryptOpts 实际上是一个空的 interface{}。
-type DecryptOpts interface{}
-
-type SignerOpts interface {
-	crypto.SignerOpts
 }
 
 /*** 🐋 ***/

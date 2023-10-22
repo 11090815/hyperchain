@@ -1,21 +1,19 @@
-package sw
+package bccsp
 
 import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
 	"fmt"
-
-	"github.com/11090815/hyperchain/bccsp"
 )
 
 type KeyGenerator interface {
-	KeyGen(opts bccsp.KeyGenOpts) (key bccsp.Key, err error)
+	KeyGen(opts KeyGenOpts) (key Key, err error)
 }
 
-type ecdsaKeyGenerator struct {}
+type ecdsaKeyGenerator struct{}
 
-func (kg *ecdsaKeyGenerator) KeyGen(opts bccsp.KeyGenOpts) (bccsp.Key, error) {
+func (kg *ecdsaKeyGenerator) KeyGen(opts KeyGenOpts) (Key, error) {
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return nil, fmt.Errorf("failed generating ecdsa key: [%s]", err.Error())
@@ -25,10 +23,10 @@ func (kg *ecdsaKeyGenerator) KeyGen(opts bccsp.KeyGenOpts) (bccsp.Key, error) {
 
 /*** 🐋 ***/
 
-type aesKeyGenerator struct {}
+type aesKeyGenerator struct{}
 
 // KeyGen 生成 256 比特长的 aes 密钥。
-func (kg *aesKeyGenerator) KeyGen(opts bccsp.KeyGenOpts) (bccsp.Key, error) {
+func (kg *aesKeyGenerator) KeyGen(opts KeyGenOpts) (Key, error) {
 	key, err := GetRandomBytes(32)
 	if err != nil {
 		return nil, fmt.Errorf("failed generating aes key: [%s]", err.Error())

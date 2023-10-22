@@ -1,4 +1,4 @@
-package sw
+package bccsp
 
 import (
 	"crypto/ecdsa"
@@ -10,41 +10,39 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-
-	"github.com/11090815/hyperchain/bccsp"
 )
 
 type Signer interface {
-	Sign(key bccsp.Key, digest []byte, opts bccsp.SignerOpts) (signature []byte, err error)
+	Sign(key Key, digest []byte) (signature []byte, err error)
 }
 
 type Verifier interface {
-	Verify(key bccsp.Key, signature []byte, digest []byte, opts bccsp.SignerOpts) (valid bool, err error)
+	Verify(key Key, signature []byte, digest []byte) (valid bool, err error)
 }
 
 type ecdsaSigner struct{}
 
-// Sign 给定的 bccsp.Key 的实际变量类型必须是 *ecdsaPrivateKey。
-func (s *ecdsaSigner) Sign(key bccsp.Key, digest []byte, opts bccsp.SignerOpts) ([]byte, error) {
-	return signECDSA(key.(*ecdsaPrivateKey).privateKey, digest, opts)
+// Sign 给定的 Key 的实际变量类型必须是 *ecdsaPrivateKey。
+func (s *ecdsaSigner) Sign(key Key, digest []byte) ([]byte, error) {
+	return signECDSA(key.(*ecdsaPrivateKey).privateKey, digest)
 }
 
 type ecdsaPrivateKeyVerifier struct{}
 
-// Verify 给定的 bccsp.Key 的实际变量类型必须是 *ecdsaPrivateKey。
-func (v *ecdsaPrivateKeyVerifier) Verify(key bccsp.Key, signature, digest []byte, opts bccsp.SignerOpts) (bool, error) {
-	return verifyECDSA(&key.(*ecdsaPrivateKey).privateKey.PublicKey, signature, digest, opts)
+// Verify 给定的 Key 的实际变量类型必须是 *ecdsaPrivateKey。
+func (v *ecdsaPrivateKeyVerifier) Verify(key Key, signature, digest []byte) (bool, error) {
+	return verifyECDSA(&key.(*ecdsaPrivateKey).privateKey.PublicKey, signature, digest)
 }
 
 type ecdsaPublicKeyVerifier struct{}
 
-// Verify 给定的 bccsp.Key 的实际变量类型必须是 *ecdsaPublicKey。
-func (v *ecdsaPublicKeyVerifier) Verify(key bccsp.Key, signature, digest []byte, opts bccsp.SignerOpts) (bool, error) {
-	return verifyECDSA(key.(*ecdsaPublicKey).publicKey, signature, digest, opts)
+// Verify 给定的 Key 的实际变量类型必须是 *ecdsaPublicKey。
+func (v *ecdsaPublicKeyVerifier) Verify(key Key, signature, digest []byte) (bool, error) {
+	return verifyECDSA(key.(*ecdsaPublicKey).publicKey, signature, digest)
 }
 
 // signECDSA 利用给定的 ECC 密钥对给定的消息摘要进行签名，得到 r 和 s 两个大整数，然后利用 asn1.Marshal 方法将两个大整数序列化成一个字节切片，得到最终的签名。
-func signECDSA(k *ecdsa.PrivateKey, digest []byte, opts bccsp.SignerOpts) ([]byte, error) {
+func signECDSA(k *ecdsa.PrivateKey, digest []byte) ([]byte, error) {
 	r, s, err := ecdsa.Sign(rand.Reader, k, digest)
 	if err != nil {
 		return nil, err
@@ -53,7 +51,7 @@ func signECDSA(k *ecdsa.PrivateKey, digest []byte, opts bccsp.SignerOpts) ([]byt
 }
 
 // verifyECDSA 利用给定的 ECC 公钥对给定的签名进行验证。
-func verifyECDSA(k *ecdsa.PublicKey, signature, digest []byte, opts bccsp.SignerOpts) (bool, error) {
+func verifyECDSA(k *ecdsa.PublicKey, signature, digest []byte) (bool, error) {
 	r, s, err := UnmarshalECDSASignature(signature)
 	if err != nil {
 		return false, fmt.Errorf("failed unmarshaling signature: [%s]", err.Error())
@@ -109,7 +107,7 @@ func (*ecdsaPrivateKey) IsPrivate() bool {
 	return true
 }
 
-func (key *ecdsaPrivateKey) PublicKey() (bccsp.Key, error) {
+func (key *ecdsaPrivateKey) PublicKey() (Key, error) {
 	return &ecdsaPublicKey{publicKey: &key.privateKey.PublicKey}, nil
 }
 
@@ -141,6 +139,6 @@ func (*ecdsaPublicKey) IsPrivate() bool {
 	return false
 }
 
-func (key *ecdsaPublicKey) PublicKey() (bccsp.Key, error) {
+func (key *ecdsaPublicKey) PublicKey() (Key, error) {
 	return key, nil
 }
