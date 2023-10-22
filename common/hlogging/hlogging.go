@@ -17,6 +17,10 @@ const (
 	defaultLevel  = zapcore.InfoLevel
 )
 
+const (
+	ShortFuncFormat = "%{color:bold}%{level:.4s}%{color:reset} %{color}%{time:2006-01-02 15:04:05} %{id:04x}%{color:reset} [%{module}] %{color}%{shortfunc}%{color:reset} -> %{message}"
+)
+
 type Config struct {
 	Format  string
 	LogSpec string

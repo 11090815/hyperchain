@@ -13,17 +13,25 @@ import (
 	"github.com/11090815/hyperchain/bccsp"
 )
 
+type Encrypter interface {
+	Encrypt(key bccsp.Key, plaintext []byte, opts bccsp.EncryptOpts) (ciphertext []byte, err error)
+}
+
+type Decrypter interface {
+	Decrypt(key bccsp.Key, ciphertext []byte, opts bccsp.DecryptOpts) (plaintext []byte, err error)
+}
+
 type aescbcpkcs7Encryptor struct{}
 
-func (e *aescbcpkcs7Encryptor) Encrypt(key bccsp.Key, plaintext []byte, opts bccsp.EncrypterOpts) ([]byte, error) {
+func (e *aescbcpkcs7Encryptor) Encrypt(key bccsp.Key, plaintext []byte, opts bccsp.EncryptOpts) ([]byte, error) {
 	switch o := opts.(type) {
 	case *bccsp.AESCBCPKCS7ModeOpts:
 		if len(o.IV) != 0 {
-			return AESCBCPKCS7EncryptWithIV(o.IV, key.(*aesPrivateKey).privateKey, plaintext)
+			return AESCBCPKCS7EncryptWithIV(o.IV, key.(*aesKey).key, plaintext)
 		} else if o.PRNG != nil {
-			return AESCBCPKCS7EncryptWithRand(o.PRNG, key.(*aesPrivateKey).privateKey, plaintext)
+			return AESCBCPKCS7EncryptWithRand(o.PRNG, key.(*aesKey).key, plaintext)
 		}
-		return AESCBCPKCS7Encrypt(key.(*aesPrivateKey).privateKey, plaintext)
+		return AESCBCPKCS7Encrypt(key.(*aesKey).key, plaintext)
 	case bccsp.AESCBCPKCS7ModeOpts:
 		return e.Encrypt(key, plaintext, &o)
 	default:
@@ -33,8 +41,8 @@ func (e *aescbcpkcs7Encryptor) Encrypt(key bccsp.Key, plaintext []byte, opts bcc
 
 type aescbcpkcs7Decryptor struct{}
 
-func (*aescbcpkcs7Decryptor) Decrypt(key bccsp.Key, ciphertext []byte, opts bccsp.DecrypterOpts) ([]byte, error) {
-	return AESCBCPKCS7Decrypt(key.(*aesPrivateKey).privateKey, ciphertext)
+func (*aescbcpkcs7Decryptor) Decrypt(key bccsp.Key, ciphertext []byte, opts bccsp.DecryptOpts) ([]byte, error) {
+	return AESCBCPKCS7Decrypt(key.(*aesKey).key, ciphertext)
 }
 
 // AESCBCPKCS7Encrypt 利用给定的密钥对明文进行 AES 加密。
@@ -181,34 +189,34 @@ func aesCBCDecrypt(key, ciphertext []byte) ([]byte, error) {
 
 /*** 🐋 ***/
 
-type aesPrivateKey struct {
-	privateKey []byte
+type aesKey struct {
+	key        []byte
 	exportable bool
 }
 
-func (key *aesPrivateKey) Bytes() ([]byte, error) {
+func (key *aesKey) Bytes() ([]byte, error) {
 	if key.exportable {
-		return key.privateKey, nil
+		return key.key, nil
 	}
 	return nil, errors.New("this aes key is unexportable")
 }
 
 // SKI 返回 AES 私钥的 sha256 哈希值。
-func (key *aesPrivateKey) SKI() []byte {
+func (key *aesKey) SKI() []byte {
 	hash := sha256.New()
 	hash.Write([]byte{0x01})
-	hash.Write(key.privateKey)
+	hash.Write(key.key)
 	return hash.Sum(nil)
 }
 
-func (key *aesPrivateKey) Symmetric() bool {
+func (key *aesKey) Symmetric() bool {
 	return true
 }
 
-func (key *aesPrivateKey) IsPrivate() bool {
+func (key *aesKey) IsPrivate() bool {
 	return true
 }
 
-func (key *aesPrivateKey) PublicKey() (bccsp.Key, error) {
+func (key *aesKey) PublicKey() (bccsp.Key, error) {
 	return nil, errors.New("aes key doesn't have public key")
 }
