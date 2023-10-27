@@ -114,10 +114,6 @@ func derToPublicKey(raw []byte) (pub interface{}, err error) {
 
 // derToPrivateKey 大概率返回 *ecdsa.PrivateKey。
 func derToPrivateKey(raw []byte) (key interface{}, err error) {
-	if key, err = x509.ParsePKCS1PrivateKey(raw); err == nil {
-		return key, nil
-	}
-
 	if key, err = x509.ParsePKCS8PrivateKey(raw); err == nil {
 		switch key.(type) {
 		case *ecdsa.PrivateKey:
