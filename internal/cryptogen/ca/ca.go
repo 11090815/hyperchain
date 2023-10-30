@@ -68,7 +68,7 @@ func NewCA(baseDir, org, name, country, province, locality, orgUnit, streetAddre
 		return nil, err
 	}
 
-	// 创建密钥，并将其存储到指定的目录中
+	// 创建密钥，并将其存储到 baseDir/private_key 文件中
 	privateKey, err := csp.GeneratePrivateKey(baseDir)
 	if err != nil {
 		return nil, err
@@ -90,6 +90,7 @@ func NewCA(baseDir, org, name, country, province, locality, orgUnit, streetAddre
 	hash.Write(raw)
 	template.SubjectKeyId = hash.Sum(nil)
 
+	// 创建 CA 的证书，并将证书内容存储在 baseDir/name-cert.pem 文件中
 	cert, err := genECDSACertificate(baseDir, name, &template, &template, &privateKey.PublicKey, privateKey)
 	if err != nil {
 		return nil, err
@@ -115,7 +116,7 @@ func genECDSACertificate(baseDir, name string, template, parent *x509.Certificat
 		return nil, err
 	}
 
-	// 如果目录不存在，则 os.Create 会自己创建一个目录
+	// 如果指定路径的文件不存在，则 os.Create 会自己创建
 	certFile, err := os.Create(filepath.Join(baseDir, name+"-cert.pem"))
 	if err != nil {
 		return nil, err

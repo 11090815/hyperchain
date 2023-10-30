@@ -5,9 +5,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/sha256"
 	"crypto/x509"
-	"encoding/hex"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -55,11 +53,6 @@ func GeneratePrivateKey(keystorePath string) (*ecdsa.PrivateKey, error) {
 		return nil, fmt.Errorf("failed generating private key: [%s]", err.Error())
 	}
 
-	en := elliptic.Marshal(privateKey.Curve, privateKey.X, privateKey.Y)
-	hash := sha256.New()
-	hash.Write(en)
-	ski := hash.Sum(nil)
-
 	der, err := x509.MarshalPKCS8PrivateKey(privateKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed generating private key: [%s]", err.Error())
@@ -67,7 +60,7 @@ func GeneratePrivateKey(keystorePath string) (*ecdsa.PrivateKey, error) {
 
 	p := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der})
 
-	err = os.WriteFile(filepath.Join(keystorePath, fmt.Sprintf("%s_%s", hex.EncodeToString(ski), "private_key")), p, os.FileMode(0600))
+	err = os.WriteFile(filepath.Join(keystorePath, "private_key"), p, os.FileMode(0600))
 	if err != nil {
 		return nil, fmt.Errorf("failed generating private key: [%s]", err.Error())
 	}
