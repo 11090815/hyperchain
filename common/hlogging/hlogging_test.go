@@ -44,7 +44,7 @@ func TestNamedLogger(t *testing.T) {
 	w := os.Stdout
 	hlogging.Reset()
 	hlogging.SetWriter(w)
-	hlogging.ActivateSpec("blockchain=info:blockchain.peer=error:p2p=warn")
+	hlogging.ActivateSpec("blockchain=info:blockchain.peer=info:p2p=warn")
 
 	logger := hlogging.MustGetLogger("blockchain")
 	logger.Debug("debug from blockchain")
@@ -53,5 +53,8 @@ func TestNamedLogger(t *testing.T) {
 	logger.Debug("debug from p2p")
 
 	logger = hlogging.MustGetLogger("p2p").Named("blockchain.peer")
-	logger.Info("info from blockchain.peer")
+	logger.Warn("info from blockchain.peer")
+
+	l := logger.With("name", "tom")
+	l.Warn("hello, everyone")
 }

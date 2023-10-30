@@ -27,8 +27,9 @@ func (c *core) With(fields []zapcore.Field) zapcore.Core {
 	clones := make(map[Encoding]zapcore.Encoder)
 
 	for name, enc := range c.Encoders {
-		addFields(enc.Clone(), fields)
-		clones[name] = enc.Clone()
+		clone := enc.Clone()
+		addFields(clone, fields)
+		clones[name] = clone
 	}
 
 	return &core{
