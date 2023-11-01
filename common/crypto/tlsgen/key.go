@@ -37,6 +37,18 @@ type CertKeyPair struct {
 	tlsCert *x509.Certificate
 }
 
+func (ckp *CertKeyPair) PublicKeyPEM() []byte {
+	pem := make([]byte, len(ckp.cert))
+	copy(pem, ckp.cert)
+	return pem
+}
+
+func (ckp *CertKeyPair) PrivateKeyPEM() []byte {
+	pem := make([]byte, len(ckp.key))
+	copy(pem, ckp.key)
+	return pem
+}
+
 func newCertKeyPair(isCA bool, isServer bool, certSigner crypto.Signer, parent *x509.Certificate, hosts ...string) (*CertKeyPair, error) {
 	privateKey, privateKeyBytes, err := newPrivateKey()
 	if err != nil {

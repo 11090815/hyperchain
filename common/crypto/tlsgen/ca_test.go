@@ -2,9 +2,17 @@ package tlsgen
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/pem"
+	"fmt"
+	"math/big"
 	"net"
+	"os"
 	"testing"
 	"time"
 
@@ -74,4 +82,101 @@ func TestTLSCA(t *testing.T) {
 	require.NoError(t, err)
 	err = probeTLS(clientCertKeyPair)
 	require.Error(t, err)
+}
+
+func genECDSAKey(name string) (*ecdsa.PrivateKey, error) {
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return nil, err
+	}
+	privateKeyBytes, err := x509.MarshalPKCS8PrivateKey(privateKey)
+	if err != nil {
+		return nil, err
+	}
+
+	keyFile, err := os.Create(fmt.Sprintf("%s-key.pem", name))
+	if err != nil {
+		return nil, err
+	}
+	defer keyFile.Close()
+
+	if err = pem.Encode(keyFile, &pem.Block{Type: "ECDSA PRIVATE KEY", Bytes: privateKeyBytes}); err != nil {
+		return nil, err
+	}
+
+	return privateKey, nil
+}
+
+func x509Template() (x509.Certificate, error) {
+	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
+	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
+
+	if err != nil {
+		return x509.Certificate{}, err
+	}
+
+	now := time.Now()
+
+	template := x509.Certificate{
+		SerialNumber:          serialNumber,
+		NotBefore:             now,
+		NotAfter:              now.Add(24 * 365 * 10 * time.Hour),
+		KeyUsage:              x509.KeyUsageCertSign,
+		BasicConstraintsValid: true,
+	}
+
+	return template, nil
+}
+
+func TestUseCertificate(t *testing.T) {
+	template, err := x509Template()
+	require.NoError(t, err)
+
+	template.IsCA = true
+
+	key, err := genECDSAKey("nwpu")
+	require.NoError(t, err)
+
+	certBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &key.PublicKey, key)
+	require.NoError(t, err)
+
+	cert, err := x509.ParseCertificate(certBytes)
+	require.NoError(t, err)
+
+	certFile, err := os.Create("nwpu-cert.pem")
+	require.NoError(t, err)
+
+	err = pem.Encode(certFile, &pem.Block{Type: "CERTIFICATE", Bytes: certBytes})
+	require.NoError(t, err)
+
+	// 用证书验证签名
+	msg := []byte("hello, world")
+	digest := sha256.Sum256(msg)
+
+	sig, err := key.Sign(rand.Reader, digest[:], nil)
+	require.NoError(t, err)
+
+	err = cert.CheckSignature(x509.ECDSAWithSHA256, msg, sig)
+	require.NoError(t, err)
+
+	// 用父级证书验证子证书
+	childKey, err := genECDSAKey("nwpu-child")
+	require.NoError(t, err)
+
+	template, err = x509Template()
+	require.NoError(t, err)
+	childCertBytes, err := x509.CreateCertificate(rand.Reader, &template, cert, &childKey.PublicKey, key)
+	require.NoError(t, err)
+
+	childCertFile, err := os.Create("nwpu-child-cert.pem")
+	require.NoError(t, err)
+
+	err = pem.Encode(childCertFile, &pem.Block{Type: "CERTIFICATE", Bytes: childCertBytes})
+	require.NoError(t, err)
+
+	childCert, err := x509.ParseCertificate(childCertBytes)
+	require.NoError(t, err)
+
+	err = childCert.CheckSignatureFrom(cert)
+	require.NoError(t, err)
 }
