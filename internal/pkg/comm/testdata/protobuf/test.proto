@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package protobuf;
+
+option go_package = "github.com/11090815/hyperchain/internal/pkg/comm/testdata/protobuf";
+
+message Reply {
+    bytes ciphertext = 1;
+    bytes plaintext = 2;
+}
+
+message Request {
+    bytes plaintext = 1;
+    bytes ciphertext = 2;
+}
+
+service EncryptorDecryptor {
+    rpc Encrypt(Request) returns (Reply);
+    rpc Decrypt(Request) returns (Reply);
+    rpc EncryptStream(stream Request) returns (stream Reply);
+    rpc DecryptStream(stream Request) returns (stream Reply);
+}

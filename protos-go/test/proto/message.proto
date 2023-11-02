@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package proto;
+
+option go_package = "github.com/11090815/hyperchain/protos-go/test/proto";
+
+service Greeter {
+    rpc SayHello(HelloRequest) returns (HelloReply);
+}
+
+message HelloRequest {
+    string name = 1;
+}
+
+message HelloReply {
+    string payload = 1;
+}
+
+service Downloader {
+    rpc Download(DownloadRequest) returns (stream DownloadResponse);
+}
+
+message DownloadRequest {
+    string suffix = 1;
+}
+
+message DownloadResponse {
+    string name = 1;
+    bytes payload = 2;
+}

@@ -15,8 +15,15 @@ import (
 )
 
 const (
-	DefaultMaxRecvMsgSize = 100 * 1024 * 1024
-	DefaultMaxSendMsgSize = 100 * 1024 * 1024
+	DefaultMaxRecvMsgSize    = 100 * 1024 * 1024
+	DefaultMaxSendMsgSize    = 100 * 1024 * 1024
+	DefaultConnectionTimeout = 5 * time.Second
+)
+
+var (
+	DefaultTLSCipherSuites = []uint16{
+		tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+	}
 )
 
 var (
@@ -80,6 +87,7 @@ func (cc ClientConfig) GetGRPCDialOptions() ([]grpc.DialOption, error) {
 	}))
 
 	if !cc.AsyncConnect {
+		// 非阻塞式连接
 		opts = append(opts,
 			grpc.WithBlock(),
 			grpc.FailOnNonTempDialError(true), // 如果为 true，且拨号器返回非暂时性错误，gRPC 将无法连接到网络地址，那么则不会尝试重新连接。
@@ -103,6 +111,7 @@ func (cc ClientConfig) GetGRPCDialOptions() ([]grpc.DialOption, error) {
 		return nil, err
 	}
 	if tlsCfg != nil {
+		// 一旦执行了下面两行代码，那么就需要服务端也要启用 TLS 连接。
 		creds := &clientCredentials{TLSConfig: tlsCfg}
 		opts = append(opts, grpc.WithTransportCredentials(creds))
 	} else {
@@ -163,6 +172,16 @@ type SecureOptions struct {
 	ServerNameOverride string
 }
 
+// ToTLSConfig 根据 SecureOptions 解析得到 *tls.Config：
+//
+//	&tls.Config{
+//		MinVersion:				tls.VersionTLS12
+//		ServerName:				so.ServerNameOverride
+//		VerifyPeerCertificate:	so.VerifyCertificate
+//		RootCAs:				AppendCertsFromPEM(so.ServerRootCAs[i]) // 如果提供了验证服务端身份的 CA 证书的话
+//		Certificates:			append(Certificates, tls.X509KeyPair(so.PublicKeyPEM, so.PrivateKeyPEM)) // 需要客户端证书的情况下
+//		Time:					time.Now().Add((-1) * so.TimeShift)
+//	}
 func (so SecureOptions) ToTLSConfig() (*tls.Config, error) {
 	if !so.UseTLS {
 		// 不使用 TLS 进行通信
@@ -176,6 +195,7 @@ func (so SecureOptions) ToTLSConfig() (*tls.Config, error) {
 	}
 
 	if len(so.ServerRootCAs) > 0 {
+		// 提供了验证服务端身份的 CA 证书
 		cfg.RootCAs = x509.NewCertPool()
 		for _, cert := range so.ServerRootCAs {
 			if !cfg.RootCAs.AppendCertsFromPEM(cert) {
@@ -185,6 +205,7 @@ func (so SecureOptions) ToTLSConfig() (*tls.Config, error) {
 	}
 
 	if so.RequireClientCert {
+		// 需要客户端的证书
 		cert, err := so.ClientCertificate()
 		if err != nil {
 			return nil, fmt.Errorf("require the certificate of the client, but %s", err.Error())

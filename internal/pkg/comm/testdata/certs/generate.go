@@ -9,6 +9,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"math/big"
+	"net"
 	"os"
 	"time"
 )
@@ -103,6 +104,10 @@ func genECDSAServerCertificate(name string, signKey *ecdsa.PrivateKey, signCert 
 	subject.Organization = []string{name}
 	subject.CommonName = "localhost"
 	template.Subject = subject
+	// template.DNSNames = []string{"localhost"}
+	template.IPAddresses = []net.IP{
+		net.ParseIP("127.0.0.1"), // 这里写入的 IP 地址必须与服务端监听的 IP 地址一样！！！
+	}
 
 	if _, err = genECDSACertificate(name, &template, signCert, &key.PublicKey, signKey); err != nil {
 		return err
@@ -201,17 +206,34 @@ func main() {
 	numClients := 2
 	numChildren := 2
 	baseOrgName := "nwpu"
-	for i := 1; i < numOrgs; i++ {
+	for i := 1; i <= numOrgs; i++ {
 		// 生成组织的 CA 证书
 		signKey, signCert, err := genECDSAAuthorityCertificate(fmt.Sprintf("%s-%d", baseOrgName, i))
 		if err != nil {
 			fmt.Printf("Failed generating CA [%s-%d-cert.pem]: [%s]\n", baseOrgName, i, err.Error())
+			return
 		}
 
 		// 生成组织下面的服务端的证书，非 CA 证书
 		for j := 1; j <= numServers; j++ {
 			if err := genECDSAServerCertificate(fmt.Sprintf("%s-%d-server-%d", baseOrgName, i, j), signKey, signCert); err != nil {
 				fmt.Printf("Failed generating certificate [%s-%d-server-%d-cert.pem]: [%s]\n", baseOrgName, i, j, err.Error())
+			}
+
+			serverCertPEM, err := os.ReadFile(fmt.Sprintf("%s-%d-server-%d-cert.pem", baseOrgName, i, j))
+			if err != nil {
+				fmt.Printf("Failed reading server certificate: [%s]\n", err.Error())
+				return
+			}
+			serverCertDER, _ := pem.Decode(serverCertPEM)
+			serverCert, err := x509.ParseCertificate(serverCertDER.Bytes)
+			if err != nil {
+				fmt.Printf("Failed parsing server certificate: [%s].\n", err.Error())
+				return
+			}
+			if err = serverCert.CheckSignatureFrom(signCert); err != nil {
+				fmt.Printf("Failed check server certificate: [%s].\n", err.Error())
+				return
 			}
 		}
 
@@ -222,7 +244,7 @@ func main() {
 			}
 		}
 
-		for j := 1; j < numChildren; j++ {
+		for j := 1; j <= numChildren; j++ {
 			inSignKey, inSignCert, err := genECDSAIntermediateAuthorityCertificate(fmt.Sprintf("%s-%d-intermediate-%d", baseOrgName, i, j), signKey, signCert)
 			if err != nil {
 				fmt.Printf("Failed generating intermediate CA [%s-%d-intermediate-%d-cert.pem]: [%s]\n", baseOrgName, i, j, err.Error())
@@ -230,17 +252,41 @@ func main() {
 
 			// 生成组织下面的服务端的证书，非 CA 证书
 			for k := 1; k <= numServers; k++ {
-				if err := genECDSAServerCertificate(fmt.Sprintf("%s-%d-server-%d", baseOrgName, i, k), inSignKey, inSignCert); err != nil {
+				if err := genECDSAServerCertificate(fmt.Sprintf("%s-%d-intermediate-%d-server-%d", baseOrgName, i, j, k), inSignKey, inSignCert); err != nil {
 					fmt.Printf("Failed generating certificate [%s-%d-server-%d-cert.pem]: [%s]\n", baseOrgName, i, k, err.Error())
 				}
 			}
 
 			// 生成组织下面客户端的证书，非 CA 证书
 			for k := 1; k <= numClients; k++ {
-				if err := genECDSAClientCertificate(fmt.Sprintf("%s-%d-client-%d", baseOrgName, i, k), inSignKey, inSignCert); err != nil {
+				if err := genECDSAClientCertificate(fmt.Sprintf("%s-%d-intermediate-%d-client-%d", baseOrgName, i, j, k), inSignKey, inSignCert); err != nil {
 					fmt.Printf("Failed generating certificate [%s-%d-client-%d-cert.pem]: [%s]\n", baseOrgName, i, k, err.Error())
 				}
 			}
 		}
+	}
+
+	caPEM, err := os.ReadFile("nwpu-1-cert.pem")
+	if err != nil {
+		panic(err)
+	}
+	caDER, _ := pem.Decode(caPEM)
+	ca, err := x509.ParseCertificate(caDER.Bytes)
+	if err != nil {
+		panic(err)
+	}
+
+	serverPEM, err := os.ReadFile("nwpu-1-server-1-cert.pem")
+	if err != nil {
+		panic(err)
+	}
+	serverDER, _ := pem.Decode(serverPEM)
+	server, err := x509.ParseCertificate(serverDER.Bytes)
+	if err != nil {
+		panic(err)
+	}
+
+	if err = server.CheckSignatureFrom(ca); err != nil {
+		panic(err)
 	}
 }

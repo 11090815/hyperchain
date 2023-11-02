@@ -4,6 +4,7 @@ go 1.20
 
 require (
 	github.com/go-kit/kit v0.13.0
+	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
 	github.com/prometheus/client_golang v1.11.1
 	github.com/stretchr/testify v1.8.1
 	github.com/sykesm/zap-logfmt v0.0.4

@@ -4,6 +4,8 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -235,6 +237,113 @@ func TestReturnAddressOfSliceInStruct(t *testing.T) {
 	require.Equal(t, c, k.GetContent())
 }
 
+type TestCerts struct {
+	CAPEM      []byte
+	CertPEM    []byte
+	KeyPEM     []byte
+	ClientCert tls.Certificate
+	ServerCert tls.Certificate
+
+	OddCACert []byte
+}
+
+func LoadTestCerts(t *testing.T) TestCerts {
+	var certs TestCerts
+	var err error
+
+	certs.CAPEM, err = os.ReadFile(filepath.Join("testdata", "certs", "nwpu-1-cert.pem"))
+	require.NoError(t, err)
+	certs.CertPEM, err = os.ReadFile(filepath.Join("testdata", "certs", "nwpu-1-client-1-cert.pem"))
+	require.NoError(t, err)
+	certs.KeyPEM, err = os.ReadFile(filepath.Join("testdata", "certs", "nwpu-1-client-1-key.pem"))
+	require.NoError(t, err)
+
+	certs.ClientCert, err = tls.X509KeyPair(certs.CertPEM, certs.KeyPEM)
+	require.NoError(t, err)
+
+	certs.ServerCert, err = tls.LoadX509KeyPair(
+		filepath.Join("testdata", "certs", "nwpu-1-server-1-cert.pem"),
+		filepath.Join("testdata", "certs", "nwpu-1-server-1-key.pem"),
+	)
+	require.NoError(t, err)
+
+	certs.OddCACert, err = os.ReadFile(filepath.Join("testdata", "certs", "odd-cert.pem"))
+	require.NoError(t, err)
+
+	return certs
+}
+
 func TestClientConfigDialOptions_GoodConfig(t *testing.T) {
-	
+	certs := LoadTestCerts(t)
+
+	config := ClientConfig{}
+	opts, err := config.GetGRPCDialOptions()
+	require.NoError(t, err)
+	require.NotEmpty(t, opts)
+
+	config.SecureOptions = SecureOptions{
+		UseTLS:            true,
+		PublicKeyPEM:      certs.CertPEM,
+		PrivateKeyPEM:     certs.KeyPEM,
+		RequireClientCert: true,
+	}
+	cert, err := config.SecureOptions.ClientCertificate()
+	require.NoError(t, err)
+	require.Equal(t, certs.ClientCert, cert)
+
+	config.SecureOptions = SecureOptions{
+		UseTLS:            true,
+		ServerRootCAs:     [][]byte{certs.CAPEM},
+		RequireClientCert: false,
+	}
+	opts, err = config.GetGRPCDialOptions()
+	require.NoError(t, err)
+	require.NotEmpty(t, opts)
+}
+
+func TestClientConfigDialOptions_BadConfig(t *testing.T) {
+	certs := LoadTestCerts(t)
+
+	config := ClientConfig{
+		SecureOptions: SecureOptions{
+			UseTLS:        true,
+			ServerRootCAs: [][]byte{certs.OddCACert},
+		},
+	}
+	_, err := config.GetGRPCDialOptions()
+	require.ErrorContains(t, err, "failed adding root certificate")
+
+	config.SecureOptions = SecureOptions{
+		PublicKeyPEM:      []byte("cert"),
+		UseTLS:            true,
+		RequireClientCert: true,
+	}
+	_, err = config.GetGRPCDialOptions()
+	require.ErrorContains(t, err, "public/private key pair of a pair of PEM encoded data should not be nil")
+
+	config.SecureOptions = SecureOptions{
+		PrivateKeyPEM:     []byte("key"),
+		UseTLS:            true,
+		RequireClientCert: true,
+	}
+	_, err = config.GetGRPCDialOptions()
+	require.ErrorContains(t, err, "public/private key pair of a pair of PEM encoded data should not be nil")
+
+	config.SecureOptions = SecureOptions{
+		PrivateKeyPEM:     certs.OddCACert,
+		PublicKeyPEM:      certs.CertPEM,
+		UseTLS:            true,
+		RequireClientCert: true,
+	}
+	_, err = config.GetGRPCDialOptions()
+	require.ErrorContains(t, err, "failed creating TLS certificate")
+
+	config.SecureOptions = SecureOptions{
+		PrivateKeyPEM:     certs.KeyPEM,
+		PublicKeyPEM:      certs.OddCACert,
+		UseTLS:            true,
+		RequireClientCert: true,
+	}
+	_, err = config.GetGRPCDialOptions()
+	require.ErrorContains(t, err, "failed creating TLS certificate")
 }

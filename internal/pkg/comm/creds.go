@@ -30,7 +30,7 @@ type clientCredentials struct {
 }
 
 func (cc *clientCredentials) ClientHandshake(ctx context.Context, authority string, rawConn net.Conn) (net.Conn, credentials.AuthInfo, error) {
-	l := tlsClientLogger.With("remote address", rawConn.RemoteAddr().String())
+	l := tlsClientLogger.With("remote_address", rawConn.RemoteAddr().String())
 	creds := credentials.NewTLS(cc.TLSConfig.Clone()) // 实际上只是把 *tls.Config 包装了一下，包装成了 &tlsCreds{*tls.Config}
 	start := time.Now()
 	conn, auth, err := creds.ClientHandshake(ctx, authority, rawConn)
@@ -76,7 +76,7 @@ func (sc *serverCreddentials) ClientHandshake(context.Context, string, net.Conn)
 
 func (sc *serverCreddentials) ServerHandshake(rawConn net.Conn) (net.Conn, credentials.AuthInfo, error) {
 	conn := tls.Server(rawConn, sc.TLSConfig.Clone())
-	l := tlsServerLogger.With("remote address", conn.RemoteAddr().String())
+	l := tlsServerLogger.With("remote_address", conn.RemoteAddr().String())
 	start := time.Now()
 	if err := conn.Handshake(); err != nil {
 		l.Errorf("Server TLS handshake failed in %s with error: [%s].", time.Since(start), err.Error())
