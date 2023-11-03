@@ -1,10 +1,12 @@
 package comm_test
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"testing"
@@ -20,11 +22,11 @@ import (
 
 const timeout = time.Second
 
-type server struct {
+type edserver struct {
 	key []byte
 }
 
-func (s *server) Encrypt(ctx context.Context, req *protobuf.Request) (*protobuf.Reply, error) {
+func (s *edserver) Encrypt(ctx context.Context, req *protobuf.Request) (*protobuf.Reply, error) {
 	var err error
 	var reply protobuf.Reply
 
@@ -40,7 +42,7 @@ func (s *server) Encrypt(ctx context.Context, req *protobuf.Request) (*protobuf.
 	return &reply, nil
 }
 
-func (s *server) Decrypt(ctx context.Context, req *protobuf.Request) (*protobuf.Reply, error) {
+func (s *edserver) Decrypt(ctx context.Context, req *protobuf.Request) (*protobuf.Reply, error) {
 	var err error
 	var reply protobuf.Reply
 
@@ -56,7 +58,7 @@ func (s *server) Decrypt(ctx context.Context, req *protobuf.Request) (*protobuf.
 	return &reply, nil
 }
 
-func (s *server) EncryptStream(stream protobuf.EncryptorDecryptor_EncryptStreamServer) error {
+func (s *edserver) EncryptStream(stream protobuf.EncryptorDecryptor_EncryptStreamServer) error {
 	for {
 		req, err := stream.Recv()
 		if err == io.EOF {
@@ -79,7 +81,7 @@ func (s *server) EncryptStream(stream protobuf.EncryptorDecryptor_EncryptStreamS
 	}
 }
 
-func (s *server) DecryptStream(stream protobuf.EncryptorDecryptor_DecryptStreamServer) error {
+func (s *edserver) DecryptStream(stream protobuf.EncryptorDecryptor_DecryptStreamServer) error {
 	for {
 		req, err := stream.Recv()
 		if err == io.EOF {
@@ -172,6 +174,106 @@ func TestClientConfigDial(t *testing.T) {
 			},
 			success: true,
 		},
+		{
+			name: "client TLS / server TLS no server roots",
+			clientConfig: comm.ClientConfig{
+				SecureOptions: comm.SecureOptions{
+					UseTLS:        true,
+					ServerRootCAs: [][]byte{},
+				},
+				DialTimeout: timeout,
+			},
+			serverConfig: &tls.Config{
+				Certificates: []tls.Certificate{certs.ServerCert},
+			},
+			success:  false,
+			errorMsg: "context deadline exceeded",
+		},
+		{
+			name: "client TLS /server TLS missing client cert",
+			clientConfig: comm.ClientConfig{
+				SecureOptions: comm.SecureOptions{
+					PublicKeyPEM:  certs.CertPEM,
+					PrivateKeyPEM: certs.KeyPEM,
+					UseTLS:        true,
+					ServerRootCAs: [][]byte{certs.CAPEM},
+				},
+				DialTimeout: timeout,
+			},
+			serverConfig: &tls.Config{
+				Certificates: []tls.Certificate{certs.ServerCert},
+				ClientAuth:   tls.RequireAndVerifyClientCert,
+				MinVersion:   tls.VersionTLS12,
+			},
+			success:  false,
+			errorMsg: "context deadline exceeded",
+		},
+		{
+			name: "client TLS / server TLS client cert",
+			clientConfig: comm.ClientConfig{
+				SecureOptions: comm.SecureOptions{
+					UseTLS: true,
+					PublicKeyPEM: certs.CertPEM,
+					PrivateKeyPEM: certs.KeyPEM,
+					ServerRootCAs: [][]byte{certs.CAPEM},
+					RequireClientCert: true,
+				},
+				DialTimeout: timeout,
+			},
+			serverConfig: &tls.Config{
+				Certificates: []tls.Certificate{certs.ServerCert},
+				ClientAuth: tls.RequireAndVerifyClientCert,
+				ClientCAs: certPool,
+			},
+			success: true,
+		},
+		{
+			name: "server TLS pining success",
+			clientConfig: comm.ClientConfig{
+				SecureOptions: comm.SecureOptions{
+					VerifyCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+						if bytes.Equal(rawCerts[0], certs.ServerCert.Certificate[0]) {
+							return nil
+						}
+						panic("mismatched certificate")
+					},
+					PublicKeyPEM: certs.CertPEM,
+					PrivateKeyPEM: certs.KeyPEM,
+					UseTLS: true,
+					RequireClientCert: true,
+					ServerRootCAs: [][]byte{certs.CAPEM},
+				},
+				DialTimeout: timeout,
+			},
+			serverConfig: &tls.Config{
+				Certificates: []tls.Certificate{certs.ServerCert},
+				ClientAuth: tls.RequireAndVerifyClientCert,
+				ClientCAs: certPool,
+			},
+			success: true,
+		},
+		{
+			name: "server TLS pining success",
+			clientConfig: comm.ClientConfig{
+				SecureOptions: comm.SecureOptions{
+					VerifyCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+						return errors.New("always failure")
+					},
+					PublicKeyPEM: certs.CertPEM,
+					PrivateKeyPEM: certs.KeyPEM,
+					UseTLS: true,
+					RequireClientCert: true,
+					ServerRootCAs: [][]byte{certs.CAPEM},
+				},
+				DialTimeout: timeout,
+			},
+			serverConfig: &tls.Config{
+				Certificates: []tls.Certificate{certs.ServerCert},
+				ClientAuth: tls.RequireAndVerifyClientCert,
+				ClientCAs: certPool,
+			},
+			success: true,
+		},
 	}
 
 	for _, test := range tests {
@@ -199,6 +301,87 @@ func TestClientConfigDial(t *testing.T) {
 			} else {
 				// t.Log(err)
 				require.ErrorContains(t, err, test.errorMsg)
+			}
+		})
+	}
+}
+
+func TestSetMessageSize(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	address := listener.Addr().String()
+	
+	s, err := comm.NewGRPCServerFromListener(listener, comm.ServerConfig{})
+	require.NoError(t, err)
+
+	key, err := bccsp.GetRandomBytes(32)
+	require.NoError(t, err)
+	protobuf.RegisterEncryptorDecryptorServer(s.Server(), &edserver{key: key})
+
+	defer s.Stop()
+	go s.Start()
+
+	tests := []struct{
+		name string
+		maxRecvSize int
+		maxSendSize int
+		failRecv bool
+		failSend bool
+	}{
+		{
+			name: "defaults should pass",
+			failRecv: false,
+			failSend: false,
+		},
+		{
+			name: "non-defaults should pass",
+			failRecv: false,
+			failSend: false,
+			maxRecvSize: 40,
+			maxSendSize: 40,
+		},
+		{
+			name: "non-defaults should pass",
+			failRecv: true,
+			failSend: false,
+			maxRecvSize: 20,
+			maxSendSize: 40,
+		},
+		{
+			name: "non-defaults should pass",
+			failSend: true,
+			maxSendSize: 1,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			config := comm.ClientConfig{
+				DialTimeout: timeout,
+				MaxRecvMsgSize: test.maxRecvSize,
+				MaxSendMsgSize: test.maxSendSize,
+			}
+			conn, err := config.Dial(address)
+			require.NoError(t, err)
+			defer conn.Close()
+
+			client := protobuf.NewEncryptorDecryptorClient(conn)
+			ctx, cancel := context.WithTimeout(context.Background(), timeout)
+			defer cancel()
+
+			req := &protobuf.Request{Plaintext: []byte{1, 2, 3, 4, 5}}
+			res, err := client.Encrypt(ctx, req)
+			if !test.failRecv && !test.failSend {
+				require.NoError(t, err)
+				fmt.Printf("Encrypted result: %x\n", res.Ciphertext)
+			}
+			if test.failSend {
+				t.Log(err)
+				require.ErrorContains(t, err, "trying to send message larger than max")
+			}
+			if test.failRecv {
+				t.Log(err)
+				require.ErrorContains(t, err, "received message larger than max")
 			}
 		})
 	}

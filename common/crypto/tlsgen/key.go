@@ -78,6 +78,7 @@ func newCertKeyPair(isCA bool, isServer bool, certSigner crypto.Signer, parent *
 		template.ExtKeyUsage = append(template.ExtKeyUsage, x509.ExtKeyUsageServerAuth) // 服务器的证书，建立 TLS 连接时，既进行客户端验证，也进行服务器身份验证
 		for _, host := range hosts {
 			if ip := net.ParseIP(host); ip != nil {
+				// IPAddresses 里必须含有服务端正在监听的 IP 地址
 				template.IPAddresses = append(template.IPAddresses, ip)
 			} else {
 				template.DNSNames = append(template.DNSNames, host)

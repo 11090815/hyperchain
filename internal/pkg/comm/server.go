@@ -193,6 +193,10 @@ func (gs *GRPCServer) Start() error {
 	return gs.server.Serve(gs.listener)
 }
 
+func (gs *GRPCServer) Stop() {
+	gs.server.Stop()
+}
+
 // SetClientRootCAs 设置验证客户端身份的 CA 证书。
 func (gs *GRPCServer) SetClientRootCAs(clientRoots [][]byte) error {
 	gs.lock.Lock()

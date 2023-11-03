@@ -159,7 +159,7 @@ type SecureOptions struct {
 	// 是否使用 TLS 用于通信。
 	UseTLS bool
 
-	// 再进行身份验证的时候，是否需要客户端提供证书。
+	// 再进行身份验证的时候，是否需要客户端提供证书，如果服务端要验证客户端的身份，则该字段必须置为 true。
 	RequireClientCert bool
 
 	// TLS 支持的密码套件。
