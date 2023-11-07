@@ -190,6 +190,7 @@ func (so SecureOptions) ToTLSConfig() (*tls.Config, error) {
 
 	cfg := &tls.Config{
 		MinVersion:            tls.VersionTLS12,
+		MaxVersion:            tls.VersionTLS12,
 		ServerName:            so.ServerNameOverride,
 		VerifyPeerCertificate: so.VerifyCertificate,
 	}

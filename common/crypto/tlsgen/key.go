@@ -37,6 +37,14 @@ type CertKeyPair struct {
 	tlsCert *x509.Certificate
 }
 
+// PublicKeyDER x509 公钥证书的 ASN.1 DER 编码格式。
+func (ckp *CertKeyPair) PublicKeyDER() []byte {
+	raw := make([]byte, len(ckp.tlsCert.Raw))
+	copy(raw, ckp.tlsCert.Raw)
+	return raw
+}
+
+// PublicKeyPEM x509 公钥证书的 ASN.1 DER PEM 编码格式。
 func (ckp *CertKeyPair) PublicKeyPEM() []byte {
 	pem := make([]byte, len(ckp.cert))
 	copy(pem, ckp.cert)
@@ -75,6 +83,7 @@ func newCertKeyPair(isCA bool, isServer bool, certSigner crypto.Signer, parent *
 
 	if isServer {
 		template.NotAfter = tenYearsFromNow
+		// 如果不添加 x509.ExtKeyUsageServerAuth 标志位的话，在验证客户端证书时会报错：tls: failed to verify certificate: x509: certificate specifies an incompatible key usage
 		template.ExtKeyUsage = append(template.ExtKeyUsage, x509.ExtKeyUsageServerAuth) // 服务器的证书，建立 TLS 连接时，既进行客户端验证，也进行服务器身份验证
 		for _, host := range hosts {
 			if ip := net.ParseIP(host); ip != nil {

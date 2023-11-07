@@ -79,6 +79,7 @@ func NewGRPCServerFromListener(listener net.Listener, serverConfig ServerConfig)
 				GetCertificate:         getCert,
 				SessionTicketsDisabled: true,
 				CipherSuites:           serverConfig.SecureOptions.CipherSuites,
+				ClientCAs:              x509.NewCertPool(),
 			}
 
 			if serverConfig.SecureOptions.TimeShift > 0 {
@@ -102,6 +103,7 @@ func NewGRPCServerFromListener(listener net.Listener, serverConfig ServerConfig)
 			}
 
 			gs.tls.MinVersion = tls.VersionTLS12
+			gs.tls.MaxVersion = tls.VersionTLS12
 			creds := &serverCreddentials{TLSConfig: gs.tls}
 			serverOpts = append(serverOpts, grpc.Creds(creds))
 		} else {

@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	defaultFormat = "%{color:bold}%{level:.4s}%{color:reset} %{color}%{time:2006-01-02 15:04:05} %{id:04x}%{color:reset} [%{module}] %{color}%{longfunc}%{color:reset} -> %{message}"
+	DefaultFormat = "%{color:bold}%{level:.4s}%{color:reset} %{color}%{time:2006-01-02 15:04:05} %{id:04x}%{color:reset} [%{module}] %{color}%{longfunc}%{color:reset} -> %{message}"
 	defaultLevel  = zapcore.InfoLevel
 )
 
@@ -45,7 +45,7 @@ func NewLogging(c Config) (*Logging, error) {
 		LoggerLevels: &LoggerLevels{
 			defaultLevel: defaultLevel,
 		},
-		encoderConfig: encoderConfig,
+		encoderConfig:  encoderConfig,
 		multiFormatter: enc.NewMultiFormatter(),
 	}
 
@@ -153,7 +153,7 @@ func (l *Logging) SetFormat(format string) error {
 	defer l.mutex.Unlock()
 
 	if format == "" {
-		format = defaultFormat
+		format = DefaultFormat
 	}
 
 	if format == "json" {
