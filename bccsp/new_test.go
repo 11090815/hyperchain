@@ -19,16 +19,16 @@ func TestCSPSignAndVerify(t *testing.T) {
 	digest, err := csp.Hash(msg, &bccsp.SHA256Opts{})
 	require.NoError(t, err)
 
-	signature, err := csp.Sign(key, digest)
+	signature, err := csp.Sign(key, digest, nil)
 	require.NoError(t, err)
 
 	publicKey, err := key.PublicKey()
 	require.NoError(t, err)
-	valid, err := csp.Verify(publicKey, signature, digest)
+	valid, err := csp.Verify(publicKey, signature, digest, nil)
 	require.NoError(t, err)
 	require.True(t, valid)
 
-	valid, err = csp.Verify(key, signature, digest)
+	valid, err = csp.Verify(key, signature, digest, nil)
 	require.NoError(t, err)
 	require.True(t, valid)
 }
@@ -45,7 +45,7 @@ func TestCSPEncryptAndDecrypt(t *testing.T) {
 	ciphertext, err := csp.Encrypt(key, msg, &bccsp.AESCBCPKCS7ModeOpts{PRNG: rand.Reader})
 	require.NoError(t, err)
 
-	plaintext, err := csp.Decrypt(key, ciphertext)
+	plaintext, err := csp.Decrypt(key, ciphertext, nil)
 	require.NoError(t, err)
 	require.Equal(t, plaintext, msg)
 }

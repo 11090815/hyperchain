@@ -30,17 +30,17 @@ func TestSignAndVerify(t *testing.T) {
 	digest := hash.Sum(nil)
 
 	signer := &ecdsaSigner{}
-	signature, err := signer.Sign(ePrivateKey, digest)
+	signature, err := signer.Sign(ePrivateKey, digest, nil)
 	require.NoError(t, err)
 
 	privateVerifier := &ecdsaPrivateKeyVerifier{}
 	publicVerifier := &ecdsaPublicKeyVerifier{}
 
-	v1, err := privateVerifier.Verify(ePrivateKey, signature, digest)
+	v1, err := privateVerifier.Verify(ePrivateKey, signature, digest, nil)
 	require.NoError(t, err)
 	require.True(t, v1)
 
-	v2, err := publicVerifier.Verify(ePublicKey, signature, digest)
+	v2, err := publicVerifier.Verify(ePublicKey, signature, digest, nil)
 	require.NoError(t, err)
 	require.True(t, v2)
 }
@@ -101,7 +101,7 @@ func TestSignatureLowS(t *testing.T) {
 
 	go func() {
 		for {
-			sig, err := signer.Sign(ecdsaSK, digest)
+			sig, err := signer.Sign(ecdsaSK, digest, nil)
 			require.NoError(t, err)
 
 			r, s, err := UnmarshalECDSASignature(sig)
@@ -136,7 +136,7 @@ func TestSignatureLowS(t *testing.T) {
 	ecdsaSK_ := &ecdsaPrivateKey{privateKey: privateKey_.(*ecdsa.PrivateKey)}
 
 	verifier := &ecdsaPrivateKeyVerifier{}
-	valid, err := verifier.Verify(ecdsaSK_, signature_.Sig, digest)
+	valid, err := verifier.Verify(ecdsaSK_, signature_.Sig, digest, nil)
 	require.NoError(t, err)
 	require.True(t, valid)
 }

@@ -68,7 +68,7 @@ func TestDerivAESKey(t *testing.T) {
 	require.NoError(t, err)
 
 	decrypter := &aescbcpkcs7Decryptor{}
-	decrypted, err := decrypter.Decrypt(derivedAESKey, ciphertext)
+	decrypted, err := decrypter.Decrypt(derivedAESKey, ciphertext, nil)
 	require.NoError(t, err)
 	require.Equal(t, plaintext, decrypted)
 }

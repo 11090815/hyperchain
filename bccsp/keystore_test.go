@@ -121,6 +121,9 @@ func TestData(t *testing.T) {
 		}
 
 		index := strings.Index(f.Name(), "_")
+		if index == -1 {
+			continue
+		}
 		skis[f.Name()[:index]] = struct{}{}
 	}
 

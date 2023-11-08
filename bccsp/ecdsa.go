@@ -13,31 +13,31 @@ import (
 )
 
 type Signer interface {
-	Sign(key Key, digest []byte) (signature []byte, err error)
+	Sign(key Key, digest []byte, opts SignerOpts) (signature []byte, err error)
 }
 
 type Verifier interface {
-	Verify(key Key, signature []byte, digest []byte) (valid bool, err error)
+	Verify(key Key, signature []byte, digest []byte, opts SignerOpts) (valid bool, err error)
 }
 
 type ecdsaSigner struct{}
 
 // Sign 给定的 Key 的实际变量类型必须是 *ecdsaPrivateKey。
-func (s *ecdsaSigner) Sign(key Key, digest []byte) ([]byte, error) {
+func (s *ecdsaSigner) Sign(key Key, digest []byte, opts SignerOpts) ([]byte, error) {
 	return signECDSA(key.(*ecdsaPrivateKey).privateKey, digest)
 }
 
 type ecdsaPrivateKeyVerifier struct{}
 
 // Verify 给定的 Key 的实际变量类型必须是 *ecdsaPrivateKey。
-func (v *ecdsaPrivateKeyVerifier) Verify(key Key, signature, digest []byte) (bool, error) {
+func (v *ecdsaPrivateKeyVerifier) Verify(key Key, signature, digest []byte, opts SignerOpts) (bool, error) {
 	return verifyECDSA(&key.(*ecdsaPrivateKey).privateKey.PublicKey, signature, digest)
 }
 
 type ecdsaPublicKeyVerifier struct{}
 
 // Verify 给定的 Key 的实际变量类型必须是 *ecdsaPublicKey。
-func (v *ecdsaPublicKeyVerifier) Verify(key Key, signature, digest []byte) (bool, error) {
+func (v *ecdsaPublicKeyVerifier) Verify(key Key, signature, digest []byte, opts SignerOpts) (bool, error) {
 	return verifyECDSA(key.(*ecdsaPublicKey).publicKey, signature, digest)
 }
 

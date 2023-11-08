@@ -16,7 +16,7 @@ type Encrypter interface {
 }
 
 type Decrypter interface {
-	Decrypt(key Key, ciphertext []byte) (plaintext []byte, err error)
+	Decrypt(key Key, ciphertext []byte, opts DecryptOpts) (plaintext []byte, err error)
 }
 
 type aescbcpkcs7Encryptor struct{}
@@ -39,7 +39,7 @@ func (e *aescbcpkcs7Encryptor) Encrypt(key Key, plaintext []byte, opts EncryptOp
 
 type aescbcpkcs7Decryptor struct{}
 
-func (*aescbcpkcs7Decryptor) Decrypt(key Key, ciphertext []byte) ([]byte, error) {
+func (*aescbcpkcs7Decryptor) Decrypt(key Key, ciphertext []byte, opts DecryptOpts) ([]byte, error) {
 	return AESCBCPKCS7Decrypt(key.(*aesKey).key, ciphertext)
 }
 

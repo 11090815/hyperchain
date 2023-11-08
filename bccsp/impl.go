@@ -140,7 +140,7 @@ func (csp *CSP) GetHash(opts HashOpts) (h hash.Hash, err error) {
 	return hasher.GetHash(opts)
 }
 
-func (csp *CSP) Sign(key Key, digest []byte) (signature []byte, err error) {
+func (csp *CSP) Sign(key Key, digest []byte, opts SignerOpts) (signature []byte, err error) {
 	if key == nil {
 		return nil, fmt.Errorf("if you want to sign the digest of some message, you should provide a key")
 	}
@@ -151,10 +151,10 @@ func (csp *CSP) Sign(key Key, digest []byte) (signature []byte, err error) {
 		return nil, fmt.Errorf("no signer for key [%T]", key)
 	}
 
-	return signer.Sign(key, digest)
+	return signer.Sign(key, digest, opts)
 }
 
-func (csp *CSP) Verify(key Key, signature, digest []byte) (valid bool, err error) {
+func (csp *CSP) Verify(key Key, signature, digest []byte, opts SignerOpts) (valid bool, err error) {
 	if key == nil {
 		return false, fmt.Errorf("if you want to verify the signature, you should provide a key")
 	}
@@ -165,7 +165,7 @@ func (csp *CSP) Verify(key Key, signature, digest []byte) (valid bool, err error
 		return false, fmt.Errorf("no verifier for key [%T]", key)
 	}
 
-	return verifier.Verify(key, signature, digest)
+	return verifier.Verify(key, signature, digest, opts)
 }
 
 func (csp *CSP) Encrypt(key Key, plaintext []byte, opts EncryptOpts) ([]byte, error) {
@@ -182,7 +182,7 @@ func (csp *CSP) Encrypt(key Key, plaintext []byte, opts EncryptOpts) ([]byte, er
 	return encrypter.Encrypt(key, plaintext, opts)
 }
 
-func (csp *CSP) Decrypt(key Key, ciphertext []byte) (plaintext []byte, err error) {
+func (csp *CSP) Decrypt(key Key, ciphertext []byte, opts DecryptOpts) (plaintext []byte, err error) {
 	if key == nil {
 		return nil, fmt.Errorf("if you want to decrypt ciphertext, you should provide a key")
 	}
@@ -193,7 +193,7 @@ func (csp *CSP) Decrypt(key Key, ciphertext []byte) (plaintext []byte, err error
 	}
 
 	// 根据密钥种类选择解密器。
-	if plaintext, err = decrypter.Decrypt(key, ciphertext); err != nil {
+	if plaintext, err = decrypter.Decrypt(key, ciphertext, opts); err != nil {
 		return nil, fmt.Errorf("failed decrypting ciphertext: [%s]", err.Error())
 	}
 
