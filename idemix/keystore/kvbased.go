@@ -40,6 +40,20 @@ type KVSStore struct {
 	Curve      *mathlib.Curve
 }
 
+func NewKVSStore(path string, trans crypto.Translator, curve *mathlib.Curve) (bccsp.KeyStore, error) {
+	kvs, err := NewFileBased(path)
+	if err != nil {
+		return nil, err
+	}
+	store := &KVSStore{
+		Translator: trans,
+		Curve:      curve,
+		KVS:        kvs,
+	}
+
+	return store, nil
+}
+
 // ReadOnly returns true if this KeyStore is read only, false otherwise.
 // If ReadOnly is true then StoreKey will fail.
 func (ks *KVSStore) ReadOnly() bool {
