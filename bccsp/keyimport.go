@@ -2,6 +2,7 @@ package bccsp
 
 import (
 	"crypto/ecdsa"
+	"crypto/x509"
 	"errors"
 	"fmt"
 )
@@ -90,22 +91,22 @@ func (*ecdsaPrivateKeyImporter) KeyImport(raw interface{}, opts KeyImportOpts) (
 // 	return &ecdsaPublicKey{publicKey: key}, nil
 // }
 
-// type x509PublicKeyImporter struct {
-// 	csp *CSP
-// }
+type x509PublicKeyImporter struct {
+	csp *CSP
+}
 
-// func (ki *x509PublicKeyImporter) KeyImport(raw interface{}, opts KeyImportOpts) (Key, error) {
-// 	x509Cert, ok := raw.(*x509.Certificate)
-// 	if !ok {
-// 		return nil, fmt.Errorf("invalid x509 public key material, want *x509.Certificate, but got [%T]", raw)
-// 	}
+func (ki *x509PublicKeyImporter) KeyImport(raw interface{}, opts KeyImportOpts) (Key, error) {
+	x509Cert, ok := raw.(*x509.Certificate)
+	if !ok {
+		return nil, fmt.Errorf("invalid x509 public key material, want *x509.Certificate, but got [%T]", raw)
+	}
 
-// 	pk := x509Cert.PublicKey
+	pk := x509Cert.PublicKey
 
-// 	switch pk := pk.(type) {
-// 	case *ecdsa.PublicKey:
-// 		return ki.csp.KeyImporters[reflect.TypeOf(&ECDSAGoPublicKeyImportOpts{})].KeyImport(pk, &ECDSAGoPublicKeyImportOpts{Temporary: opts.Ephemeral()})
-// 	default:
-// 		return nil, fmt.Errorf("x509 certificate public key type not recognized, only support *ecdsa.PublicKey, but got [%T]", pk)
-// 	}
-// }
+	switch pk := pk.(type) {
+	case *ecdsa.PublicKey:
+		return &ecdsaPublicKey{publicKey: pk}, nil
+	default:
+		return nil, fmt.Errorf("x509 certificate public key type not recognized, only support *ecdsa.PublicKey, but got [%T]", pk)
+	}
+}

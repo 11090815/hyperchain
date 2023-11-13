@@ -238,12 +238,26 @@ func (opts *ECDSAPrivateKeyImportOpts) Algorithm() string {
 	return ECDSA
 }
 
+type X509PublicKeyImportOpts struct {
+	Temporary bool
+}
+
+func (opts *X509PublicKeyImportOpts) Ephemeral() bool {
+	return opts.Temporary
+}
+
+func (opts *X509PublicKeyImportOpts) Algorithm() string {
+	return X509Certificate
+}
+
 /*** 🐋 ***/
 
 const (
-	ECDSAReRand = "ECDSA_RERAND"
-	ECDSA       = "ECDSA"
+	ECDSAReRand     = "ECDSA_RERAND"
+	ECDSA           = "ECDSA"
+	X509Certificate = "X509Certificate"
 
+	SHA2   = "SHA2"
 	SHA256 = "SHA256"
 
 	AES       = "AES"

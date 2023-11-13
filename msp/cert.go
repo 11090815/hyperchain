@@ -1,6 +1,7 @@
 package msp
 
 import (
+	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"math/big"
@@ -41,3 +42,11 @@ type certificate struct {
 // func x509CertToPEM(cert *x509.Certificate) string {
 
 // }
+
+// isECDSASignedCert 是否是由 ECDSA 签名算法签署的 x509 证书。
+func isECDSASignedCert(cert *x509.Certificate) bool {
+	return cert.SignatureAlgorithm == x509.ECDSAWithSHA1 ||
+		cert.SignatureAlgorithm == x509.ECDSAWithSHA256 ||
+		cert.SignatureAlgorithm == x509.ECDSAWithSHA384 ||
+		cert.SignatureAlgorithm == x509.ECDSAWithSHA512
+}

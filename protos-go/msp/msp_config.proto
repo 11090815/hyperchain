@@ -85,14 +85,10 @@ message HyperchainMSPConfig {
 // this configuration refers to
 message HyperchainCryptoConfig {
 
-    // SignatureHashFamily is a string representing the hash family to be used
-    // during sign and verify operations.
-    // Allowed values are "SHA2" and "SHA3".
+    // SignatureHashFamily 定义了哈希家族，用于在签名和验证的时候选择哈希函数，目前仅支持 SHA2 家族。
     string signature_hash_family = 1;
 
-    // IdentityIdentifierHashFunction is a string representing the hash function
-    // to be used during the computation of the identity identifier of an MSP identity.
-    // Allowed values are "SHA256", "SHA384" and "SHA3_256", "SHA3_384".
+    // IdentityIdentifierHashFunction 定义了哈希家族，用于在计算身份标识符的时候选择哈希函数，目前仅支持 SHA2 家族。
     string identity_identifier_hash_function = 2;
 
 }
@@ -141,9 +137,7 @@ message IdemixMSPSignerConfig {
 // related to the signing identity the peer is to use for generating
 // endorsements
 message SigningIdentityInfo {
-    // PublicSigner carries the public information of the signing
-    // identity. For an X.509 provider this would be represented by
-    // an X.509 certificate
+    // PublicSigner x509 证书的 ASN.1 DER PEM 格式编码的数据。
     bytes public_signer = 1;
 
     // PrivateSigner denotes a reference to the private key of the
@@ -161,8 +155,7 @@ message KeyInfo {
     // the SKI of the key
     string key_identifier = 1;
 
-    // KeyMaterial (optional) for the key to be imported; this is
-    // properly encoded key bytes, prefixed by the type of the key
+    // KeyMaterial 密钥的 ASN.1 DER PEM 格式数据。
     bytes key_material = 2;
 }
 

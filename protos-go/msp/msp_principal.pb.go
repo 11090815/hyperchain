@@ -30,11 +30,9 @@ const (
 	// groupping of entities, per MSP affiliation
 	// E.g., this can well be represented by an MSP's
 	// Organization unit
-	MSPPrincipal_IDENTITY MSPPrincipal_Classification = 2 // Denotes a principal that consists of a single
-	// identity
-	MSPPrincipal_ANONYMITY MSPPrincipal_Classification = 3 // Denotes a principal that can be used to enforce
-	// an identity to be anonymous or nominal.
-	MSPPrincipal_COMBINED MSPPrincipal_Classification = 4 // Denotes a combined principal
+	MSPPrincipal_IDENTITY  MSPPrincipal_Classification = 2 // Denotes a principal that consists of a single identity
+	MSPPrincipal_ANONYMITY MSPPrincipal_Classification = 3 // Denotes a principal that can be used to enforce an identity to be anonymous or nominal.
+	MSPPrincipal_COMBINED  MSPPrincipal_Classification = 4 // Denotes a combined principal
 )
 
 // Enum value maps for MSPPrincipal_Classification.

@@ -1,6 +1,8 @@
 package tlsgen
 
-import "crypto"
+import (
+	"crypto"
+)
 
 type CA struct {
 	*CertKeyPair
@@ -46,6 +48,8 @@ func (ca *CA) NewServerCertKeyPair(hosts ...string) (*CertKeyPair, error) {
 }
 
 // CertBytes 返回 x509.Certficate 的 PKCS#8 ASN.1 DER PEM 格式的数据。
+//
+// Deprecated: 该方法被 PublicKeyPEM 方法替代。
 func (ca *CA) CertBytes() []byte {
 	return ca.cert
 }

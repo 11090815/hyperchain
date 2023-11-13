@@ -1,6 +1,7 @@
 package bccsp
 
 import (
+	"fmt"
 	"hash"
 )
 
@@ -21,4 +22,13 @@ func (c *hasher) Hash(msg []byte, opts HashOpts) ([]byte, error) {
 
 func (c *hasher) GetHash(opts HashOpts) (hash.Hash, error) {
 	return c.hash(), nil
+}
+
+func GetHashOpt(hashFunction string) (HashOpts, error) {
+	switch hashFunction {
+	case SHA256:
+		return &SHA256Opts{}, nil
+	default:
+		return nil, fmt.Errorf("hash function [%s] not recognized", hashFunction)
+	}
 }

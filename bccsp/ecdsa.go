@@ -77,7 +77,7 @@ func UnmarshalECDSASignature(raw []byte) (r *big.Int, s *big.Int, err error) {
 	return sig.R, sig.S, nil
 }
 
-/*** 🐋 ***/
+/*⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓*/
 
 type ecdsaPrivateKey struct {
 	privateKey *ecdsa.PrivateKey

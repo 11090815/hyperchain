@@ -43,6 +43,7 @@ func NewBCCSP(ks KeyStore) (BCCSP, error) {
 	csp.AddWrapper(reflect.TypeOf(&AESKeyImportOpts{}), &aesKeyImporter{})
 	csp.AddWrapper(reflect.TypeOf(&ECDSAPKIXPublicKeyImportOpts{}), &ecdsaPKIXPublicKeyImporter{})
 	csp.AddWrapper(reflect.TypeOf(&ECDSAPrivateKeyImportOpts{}), &ecdsaPrivateKeyImporter{})
+	csp.AddWrapper(reflect.TypeOf(&X509PublicKeyImportOpts{}), &x509PublicKeyImporter{})
 
 	return csp, nil
 }
