@@ -22,6 +22,12 @@ const (
 
 type ProviderType int
 
+const (
+	HYPERCHAIN ProviderType = iota
+	IDEMIX
+	OTHER
+)
+
 /*⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓*/
 
 type Identity interface {

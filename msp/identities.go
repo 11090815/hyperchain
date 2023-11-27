@@ -86,6 +86,7 @@ func (id *identity) GetMSPIdentifier() string {
 	return id.id.Mspid
 }
 
+// Validate 验证该身份指向的 x509 证书是否被撤销，如果被撤销，则验证失败，否则按照 msp 内部定义的验证规则继续验证。
 func (id *identity) Validate() error {
 	return id.msp.Validate(id)
 }

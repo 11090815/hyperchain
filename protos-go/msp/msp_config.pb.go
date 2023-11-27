@@ -256,13 +256,9 @@ type HyperchainCryptoConfig struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// SignatureHashFamily is a string representing the hash family to be used
-	// during sign and verify operations.
-	// Allowed values are "SHA2" and "SHA3".
+	// SignatureHashFamily 定义了哈希家族，用于在签名和验证的时候选择哈希函数，目前仅支持 SHA2 家族。
 	SignatureHashFamily string `protobuf:"bytes,1,opt,name=signature_hash_family,json=signatureHashFamily,proto3" json:"signature_hash_family,omitempty"`
-	// IdentityIdentifierHashFunction is a string representing the hash function
-	// to be used during the computation of the identity identifier of an MSP identity.
-	// Allowed values are "SHA256", "SHA384" and "SHA3_256", "SHA3_384".
+	// IdentityIdentifierHashFunction 定义了哈希家族，用于在计算身份标识符的时候选择哈希函数，目前仅支持 SHA2 家族。
 	IdentityIdentifierHashFunction string `protobuf:"bytes,2,opt,name=identity_identifier_hash_function,json=identityIdentifierHashFunction,proto3" json:"identity_identifier_hash_function,omitempty"`
 }
 
@@ -500,9 +496,7 @@ type SigningIdentityInfo struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// PublicSigner carries the public information of the signing
-	// identity. For an X.509 provider this would be represented by
-	// an X.509 certificate
+	// PublicSigner x509 证书的 ASN.1 DER PEM 格式编码的数据。
 	PublicSigner []byte `protobuf:"bytes,1,opt,name=public_signer,json=publicSigner,proto3" json:"public_signer,omitempty"`
 	// PrivateSigner denotes a reference to the private key of the
 	// peer's signing identity
@@ -568,8 +562,7 @@ type KeyInfo struct {
 	// the case of Software BCCSP as well as the HSM BCCSP would be
 	// the SKI of the key
 	KeyIdentifier string `protobuf:"bytes,1,opt,name=key_identifier,json=keyIdentifier,proto3" json:"key_identifier,omitempty"`
-	// KeyMaterial (optional) for the key to be imported; this is
-	// properly encoded key bytes, prefixed by the type of the key
+	// KeyMaterial 密钥的 ASN.1 DER PEM 格式数据。
 	KeyMaterial []byte `protobuf:"bytes,2,opt,name=key_material,json=keyMaterial,proto3" json:"key_material,omitempty"`
 }
 

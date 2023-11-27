@@ -26,7 +26,7 @@ type SerializedIdentity struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Mspid MSP 的标识符。
+	// Mspid MSP 的名字（标识符）。
 	Mspid string `protobuf:"bytes,1,opt,name=mspid,proto3" json:"mspid,omitempty"`
 	// IdBytes x509 证书的 ASN.1 DER PEM 格式的数据。
 	IdBytes []byte `protobuf:"bytes,2,opt,name=id_bytes,json=idBytes,proto3" json:"id_bytes,omitempty"`

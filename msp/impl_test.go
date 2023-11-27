@@ -141,3 +141,57 @@ func TestKeyImport(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, valid)
 }
+
+func TestIntermediateCertGetValidationChain(t *testing.T) {
+	ca, err := tlsgen.NewCA()
+	require.NoError(t, err)
+
+	intermediateCertKP1, err := ca.NewIntermediateCA()
+	require.NoError(t, err)
+
+	intermediateCertKP2, err := intermediateCertKP1.NewIntermediateCA()
+	require.NoError(t, err)
+
+	intermediateCertKP3, err := intermediateCertKP2.NewIntermediateCA()
+	require.NoError(t, err)
+
+	intermediateCertKP4, err := intermediateCertKP3.NewIntermediateCA()
+	require.NoError(t, err)
+
+	icert4DER := intermediateCertKP4.PublicKeyDER()
+	icert4, err := x509.ParseCertificate(icert4DER)
+	require.NoError(t, err)
+
+	opt := x509.VerifyOptions{
+		KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+	}
+
+	{
+		roots := x509.NewCertPool()
+		roots.AppendCertsFromPEM(ca.PublicKeyPEM())
+
+		intermediates := x509.NewCertPool()
+		intermediates.AppendCertsFromPEM(intermediateCertKP1.PublicKeyPEM())
+		intermediates.AppendCertsFromPEM(intermediateCertKP2.PublicKeyPEM())
+		intermediates.AppendCertsFromPEM(intermediateCertKP3.PublicKeyPEM())
+
+		opt.Roots = roots
+		opt.Intermediates = intermediates
+	}
+
+	chain4, err := icert4.Verify(opt)
+	require.NoError(t, err)
+	t.Log(len(chain4[0]))
+
+	chainCert0 := chain4[0][0]
+	chainCert1 := chain4[0][1]
+	chainCert2 := chain4[0][2]
+	chainCert3 := chain4[0][3]
+	chainCert4 := chain4[0][4]
+
+	require.Equal(t, chainCert0.Raw, intermediateCertKP4.PublicKeyDER())
+	require.Equal(t, chainCert1.Raw, intermediateCertKP3.PublicKeyDER())
+	require.Equal(t, chainCert2.Raw, intermediateCertKP2.PublicKeyDER())
+	require.Equal(t, chainCert3.Raw, intermediateCertKP1.PublicKeyDER())
+	require.Equal(t, chainCert4.Raw, ca.PublicKeyDER())
+}

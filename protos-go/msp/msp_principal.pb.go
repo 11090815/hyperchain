@@ -213,13 +213,10 @@ type MSPPrincipal struct {
 	// denotes that Principal contains one of the groups by
 	// default supported by all MSPs ("admin" or "member").
 	PrincipalClassification MSPPrincipal_Classification `protobuf:"varint,1,opt,name=principal_classification,json=principalClassification,proto3,enum=msp.MSPPrincipal_Classification" json:"principal_classification,omitempty"`
-	// Principal completes the policy principal definition. For the default
-	// principal types, Principal can be either "Admin" or "Member".
-	// For the ByOrganizationUnit/ByIdentity values of Classification,
-	// PolicyPrincipal acquires its value from an organization unit or
-	// identity, respectively.
-	// For the Combined Classification type, the Principal is a marshalled
-	// CombinedPrincipal.
+	// Principal 可能是以下几种数据经过 proto.Marshal() 方法序列化后得到的字节切片：
+	//  1. &MSPRole{}
+	//  2. &SerializedIdentity{}
+	//  3. &OrganizationUnit{}
 	Principal []byte `protobuf:"bytes,2,opt,name=principal,proto3" json:"principal,omitempty"`
 }
 

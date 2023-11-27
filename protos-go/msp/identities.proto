@@ -6,7 +6,7 @@ package msp;
 
 // SerializedIdentity 包含节点的身份证书信息（IdBytes），还包含 MSP 的标识符。
 message SerializedIdentity {
-    // Mspid MSP 的标识符。
+    // Mspid MSP 的名字（标识符）。
     string mspid = 1;
 
     // IdBytes x509 证书的 ASN.1 DER PEM 格式的数据。
