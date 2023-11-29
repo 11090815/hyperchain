@@ -217,6 +217,7 @@ type MSPPrincipal struct {
 	//  1. &MSPRole{}
 	//  2. &SerializedIdentity{}
 	//  3. &OrganizationUnit{}
+	//  4. &MSPIdentityAnonymity{}
 	Principal []byte `protobuf:"bytes,2,opt,name=principal,proto3" json:"principal,omitempty"`
 }
 

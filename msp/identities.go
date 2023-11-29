@@ -51,7 +51,7 @@ func newIdentity(cert *x509.Certificate, pk bccsp.Key, msp *bccspmsp) (Identity,
 
 	cert, _ = msp.santizeCert(cert)
 
-	hashOpt, err := bccsp.GetHashOpt(msp.cryptoConfig.IdentityIdentifierHashFunction)
+	hashOpt, err := bccsp.GetHashOpt(msp.cryptoConfig.HashAlgorithm)
 	if err != nil {
 		return nil, vars.ErrorGettingHashOption{Reason: err.Error()}
 	}
@@ -133,7 +133,7 @@ func (id *identity) Serialize() ([]byte, error) {
 }
 
 func (id *identity) Verify(msg, sig []byte) error {
-	hashOpt, err := id.getHashOpt(id.msp.cryptoConfig.SignatureHashFamily)
+	hashOpt, err := bccsp.GetHashOpt(id.msp.cryptoConfig.HashAlgorithm)
 	if err != nil {
 		return vars.ErrorGettingHashOption{Reason: err.Error()}
 	}
@@ -154,15 +154,6 @@ func (id *identity) Verify(msg, sig []byte) error {
 	}
 
 	return nil
-}
-
-func (id *identity) getHashOpt(hashFamily string) (bccsp.HashOpts, error) {
-	switch hashFamily {
-	case bccsp.SHA2:
-		return bccsp.GetHashOpt(bccsp.SHA256)
-	default:
-		return nil, fmt.Errorf("hash family [%s] not recognized", hashFamily)
-	}
 }
 
 /*⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓*/
@@ -191,7 +182,7 @@ func newSigningIdentity(cert *x509.Certificate, pk bccsp.Key, signer crypto.Sign
 }
 
 func (id *signingIdentity) Sign(msg []byte) ([]byte, error) {
-	hashOpt, err := id.getHashOpt(id.msp.cryptoConfig.SignatureHashFamily)
+	hashOpt, err := bccsp.GetHashOpt(id.msp.cryptoConfig.HashAlgorithm)
 	if err != nil {
 		return nil, vars.ErrorGettingHashOption{Reason: err.Error()}
 	}

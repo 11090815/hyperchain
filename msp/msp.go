@@ -40,7 +40,7 @@ type Identity interface {
 	// GetMSPIdentifier 返回 MSP 的身份标识符。
 	GetMSPIdentifier() string
 
-	// Validate 使用管理此身份的规则验证该身份。
+	// Validate 验证身份证书是否被撤销。
 	Validate() error
 
 	// GetOrganizationalUnits 返回与此身份关联的零个或多个组织单位。
@@ -101,6 +101,14 @@ type MSP interface {
 	Validate(id Identity) error
 
 	SatisfiesPrincipal(id Identity, principal *pbmsp.MSPPrincipal) error
+}
+
+/*⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓*/
+
+type MSPManager interface {
+	IdentityDeserializer
+	Setup(msps []MSP) error
+	GetMSPs() (map[string]MSP, error)
 }
 
 /*⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓*/

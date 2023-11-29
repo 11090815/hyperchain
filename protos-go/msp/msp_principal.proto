@@ -55,6 +55,7 @@ message MSPPrincipal {
     //  1. &MSPRole{}
     //  2. &SerializedIdentity{}
     //  3. &OrganizationUnit{}
+    //  4. &MSPIdentityAnonymity{}
     bytes principal = 2;
 }
 
