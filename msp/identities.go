@@ -91,6 +91,7 @@ func (id *identity) Validate() error {
 	return id.msp.Validate(id)
 }
 
+// GetOrganizationalUnits 获取该身份的所有组织单位。
 func (id *identity) GetOrganizationalUnits() []*OUIdentifier {
 	if id.cert == nil {
 		return nil

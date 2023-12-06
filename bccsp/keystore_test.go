@@ -4,12 +4,18 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/sha256"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/hex"
+	"encoding/pem"
 	"fmt"
+	"math/big"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/11090815/hyperchain/common/hlogging"
 	"github.com/stretchr/testify/require"
@@ -144,4 +150,65 @@ func TestData(t *testing.T) {
 			fmt.Printf("unknown key type [%T]\n", key)
 		}
 	}
+}
+
+func TestStoreKeyAndCertificate(t *testing.T) {
+	ks, err := NewFileBasedKeyStore("testdata", false)
+	require.NoError(t, err)
+
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+	sk := &ecdsaPrivateKey{privateKey: privateKey}
+	err = ks.StoreKey(sk)
+	require.NoError(t, err)
+
+	cert, err := newCert(privateKey)
+	require.NoError(t, err)
+	f, err := os.OpenFile("testdata/cert.pem", os.O_CREATE|os.O_RDWR, os.FileMode(0600))
+	require.NoError(t, err)
+	f.Write(cert)
+	f.Close()
+}
+
+func newCert(privateKey *ecdsa.PrivateKey) ([]byte, error) {
+	template, err := newCertTemplate()
+	if err != nil {
+		return nil, err
+	}
+
+	tenYearsFromNow := time.Now().Add(time.Hour * 24 * 365 * 10)
+
+	// 为证书颁发中心 CA 生成证书和密钥
+	template.NotAfter = tenYearsFromNow
+
+	hash := sha256.New()
+	publicKeyBytes, err := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
+	if err != nil {
+		return nil, err
+	}
+	hash.Write(publicKeyBytes)
+	template.SubjectKeyId = hash.Sum(nil)
+
+	// 证书由父级证书签名。如果父级证书等于模板，则证书为自签名。参数 pub 是要生成证书的公钥，priv 是签名者的私钥。
+	raw, err := x509.CreateCertificate(rand.Reader, &template, &template, &privateKey.PublicKey, privateKey)
+	if err != nil {
+		return nil, err
+	}
+	publicKeyDERPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: raw})
+	return publicKeyDERPEM, nil
+}
+
+func newCertTemplate() (x509.Certificate, error) {
+	serialNum, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
+	if err != nil {
+		return x509.Certificate{}, err
+	}
+
+	return x509.Certificate{
+		Subject:      pkix.Name{SerialNumber: serialNum.String()},                  // 证书持有者的信息
+		NotBefore:    time.Now().Add(time.Hour * (-24)),                            // 证书有效期开始时间不要早于一天前
+		NotAfter:     time.Now().Add(time.Hour * 24),                               // 证书过期时间不要晚于一天后
+		KeyUsage:     x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature, // 定义了证书包含的密钥的用途：加密对称密钥 | 数字签名
+		SerialNumber: serialNum,                                                    // 证书序列号，标识证书的唯一整数，重复的编号无法安装到系统里
+	}, nil
 }

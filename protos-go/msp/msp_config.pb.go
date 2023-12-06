@@ -28,10 +28,9 @@ type MSPConfig struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Type holds the type of the MSP; the default one would
-	// be of type FABRIC implementing an X.509 based provider
+	// Type 表示 MSP 的类型；默认类型为 HYPERCHAIN，用于执行基于 X.509 的提供程序。
 	Type int32 `protobuf:"varint,1,opt,name=type,proto3" json:"type,omitempty"`
-	// Config is MSP dependent configuration info
+	// Config HyperchainMSPConfig 结构体的 protobuf 编码的字节。
 	Config []byte `protobuf:"bytes,2,opt,name=config,proto3" json:"config,omitempty"`
 }
 
@@ -100,18 +99,11 @@ type HyperchainMSPConfig struct {
 	// that is X.509-based and considers a single Issuer,
 	// this can refer to the Subject OU field or the Issuer OU field.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// List of root certificates trusted by this MSP
-	// they are used upon certificate validation (see
-	// comment for IntermediateCerts below)
+	// RootCerts 存储本 msp 信任的 ca 证书的证书列表，存储格式为 ASN.1 DER PEM。
 	RootCerts [][]byte `protobuf:"bytes,2,rep,name=root_certs,json=rootCerts,proto3" json:"root_certs,omitempty"`
-	// List of intermediate certificates trusted by this MSP;
-	// they are used upon certificate validation as follows:
-	// validation attempts to build a path from the certificate
-	// to be validated (which is at one end of the path) and
-	// one of the certs in the RootCerts field (which is at
-	// the other end of the path). If the path is longer than
-	// 2, certificates in the middle are searched within the
-	// IntermediateCerts pool
+	// IntermediateCerts 存储该 MSP 信任的中间证书列表；它们在证书验证时的使用方法如下：
+	// 验证尝试从待验证证书（位于路径的一端）和根证书字段中的一个证书（位于路径的另一端）
+	// 之间建立一条路径。如果路径长于 2，中间的证书将在 IntermediateCerts 池中搜索。
 	IntermediateCerts [][]byte `protobuf:"bytes,3,rep,name=intermediate_certs,json=intermediateCerts,proto3" json:"intermediate_certs,omitempty"`
 	// Admins 表示该 MSP 的管理员的身份。
 	// x509 证书的 ASN.1 DER PEM 格式编码的数据。
@@ -127,13 +119,11 @@ type HyperchainMSPConfig struct {
 	// hyperchain organizational unit identifiers that belong to
 	// this MSP configuration
 	OrganizationalUnitIdentifiers []*HyperchainOUIdentifier `protobuf:"bytes,7,rep,name=organizational_unit_identifiers,json=organizationalUnitIdentifiers,proto3" json:"organizational_unit_identifiers,omitempty"`
-	// HyperchainCryptoConfig contains the configuration parameters
-	// for the cryptographic algorithms used by this MSP
+	// HyperchainCryptoConfig 定义了采用那种哈希算法。
 	CryptoConfig *HyperchainCryptoConfig `protobuf:"bytes,8,opt,name=crypto_config,json=cryptoConfig,proto3" json:"crypto_config,omitempty"`
-	// TlsRootCerts该 MSP 信任的 TLS 根证书列表，x509 证书的 ASN.1 DER PEM 格式编码的数据。
+	// TlsRootCerts 该 MSP 信任的 TLS 根证书列表，x509 证书的 ASN.1 DER PEM 格式编码的数据。
 	TlsRootCerts [][]byte `protobuf:"bytes,9,rep,name=tls_root_certs,json=tlsRootCerts,proto3" json:"tls_root_certs,omitempty"`
-	// List of TLS intermediate certificates trusted by this MSP;
-	// They are returned by GetTLSIntermediateCerts.
+	// TlsIntermediateCerts 该 MSP 信任的 TLS 中级证书列表，x509 证书的 ASN.1 DER PEM 格式编码的数据。
 	TlsIntermediateCerts [][]byte `protobuf:"bytes,10,rep,name=tls_intermediate_certs,json=tlsIntermediateCerts,proto3" json:"tls_intermediate_certs,omitempty"`
 	// HyperchainNodeOus 包含 peer、admin、client、orderer 四类节点的 organizational unit 的配置信息。
 	HyperchainNodeOus *HyperchainNodeOUs `protobuf:"bytes,11,opt,name=hyperchain_node_ous,json=hyperchainNodeOus,proto3" json:"hyperchain_node_ous,omitempty"`
@@ -490,8 +480,8 @@ type SigningIdentityInfo struct {
 
 	// PublicSigner x509 证书的 ASN.1 DER PEM 格式编码的数据。
 	PublicSigner []byte `protobuf:"bytes,1,opt,name=public_signer,json=publicSigner,proto3" json:"public_signer,omitempty"`
-	// PrivateSigner denotes a reference to the private key of the
-	// peer's signing identity
+	// PrivateSigner 与 PublicSigner 相对应的私钥信息，当根据 PublicSigner 的公钥的 SKI 在 keystore
+	// 中找不到私钥时，就可以利用 PrivateSigner 携带的私钥信息导入私钥到 keystore 中。
 	PrivateSigner *KeyInfo `protobuf:"bytes,2,opt,name=private_signer,json=privateSigner,proto3" json:"private_signer,omitempty"`
 }
 

@@ -86,11 +86,9 @@ type MSP interface {
 	// Setup 配置 MSP。
 	Setup(config *pbmsp.MSPConfig) error
 
-	GetVersion() MSPVersion
-
 	GetType() ProviderType
 
-	GetIdentifier() (string, error)
+	GetIdentifier() string
 
 	GetDefaultSigningIdentity() (SigningIdentity, error)
 

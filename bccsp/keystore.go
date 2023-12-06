@@ -21,6 +21,10 @@ const (
 	ecdsaPublicKeySuffix  = "public_key"
 )
 
+var defaultPath string
+
+var setKeyStorePathOnce sync.Once
+
 type fileBasedKeyStore struct {
 	path     string
 	readOnly bool
@@ -29,9 +33,18 @@ type fileBasedKeyStore struct {
 	mutex    sync.Mutex
 }
 
+func PreSetKeyStorePath(path string) {
+	setKeyStorePathOnce.Do(func() {
+		defaultPath = path
+	})
+}
+
 func NewFileBasedKeyStore(path string, readOnly bool) (KeyStore, error) {
 	ks := &fileBasedKeyStore{
 		logger: hlogging.MustGetLogger("bccsp_ks"),
+	}
+	if path == "" {
+		path = defaultPath
 	}
 	return ks, ks.Init(path, readOnly)
 }

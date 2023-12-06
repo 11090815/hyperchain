@@ -1,0 +1,22 @@
+OrganizationalUnitIdentifiers:
+  - Certificate: "cacerts/cacert.pem"
+    OrganizationalUnitIdentifier: "COP"
+
+NodeOUs:
+  Enable: false
+  # 为要使用的每个身份分类指定一个 OU 标识符。您可以选择配置 OU 标识符必须由
+  # 贵组织的特定 CA 或中间证书签发。不过，通常情况下不配置特定证书。如果不配
+  # 置特定证书，以后就可以添加其他 CA 或中间证书，而不必重新签发所有证书。因
+  # 此，下面的示例注释了证书字段。
+  ClientOUIdentifier:
+    # Certificate: "cacerts/cacert.pem"
+    OrganizationalUnitIdentifier: "OU_client"
+  PeerOUIdentifier:
+    # Certificate: "cacerts/cacert.pem"
+    OrganizationalUnitIdentifier: "OU_peer"
+  AdminOUIdentifier:
+    # Certificate: "cacerts/cacert.pem"
+    OrganizationalUnitIdentifier: "OU_admin"
+  OrdererOUIdentifier:
+    # Certificate: "cacerts/cacert.pem"
+    OrganizationalUnitIdentifier: "OU_orderer"

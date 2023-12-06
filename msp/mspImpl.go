@@ -5,10 +5,10 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
+	"encoding/hex"
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"math/big"
 	"reflect"
 	"strings"
 	"time"
@@ -34,9 +34,6 @@ type satisfiesPrincipalInternalFuncType func(id Identity, principal *pbmsp.MSPPr
 type setupAdminInternalFuncType func(conf *pbmsp.HyperchainMSPConfig) error
 
 type bccspmsp struct {
-	// version 规范了 MSP 的行为。
-	version MSPVersion
-
 	// internalSetupFunc 根据版本改变 MSP 的行为。
 	internalSetupFunc mspSetupFuncType
 
@@ -84,7 +81,7 @@ type bccspmsp struct {
 	// RLs 若干个证书撤销列表，每个撤销列表里存放的撤销的证书都由同一个 Issuer (CA) 发布。
 	RLs []*x509.RevocationList
 
-	// ouIdentifiers 组织单位列表
+	// ouIdentifiers 组织单位列表，组织单位标识符 => 若干证书链哈希
 	ouIdentifiers map[string][][]byte
 
 	cryptoConfig *pbmsp.HyperchainCryptoConfig
@@ -92,6 +89,18 @@ type bccspmsp struct {
 	ouEnforcement bool
 
 	clientOU, peerOU, adminOU, ordererOU *OUIdentifier
+}
+
+func newBCCSPMSP(csp bccsp.BCCSP) MSP {
+	msp := &bccspmsp{}
+	msp.csp = csp
+
+	msp.internalSetupFunc = msp.setupV142
+	msp.internalValidateIdentityOUsFunc = msp.validateIdentityOUsV142
+	msp.internalSatisfiesPrincipalInternalFunc = msp.satisfiesPrincipalInternalV142
+	msp.internalSetupAdminsFunc = msp.setupAdminsV142
+
+	return msp
 }
 
 // IsWellFormed 给定参数 *pbmsp.SerializedIdentity，按照以下步骤检查 SerializedIdentity.IdBytes 是否合法：
@@ -126,7 +135,7 @@ func (msp *bccspmsp) IsWellFormed(identity *pbmsp.SerializedIdentity) error {
 
 // SatisfiesPrincipal 调用 internalSatisfiesPrincipalInternalFunc 方法验证 principal。
 func (msp *bccspmsp) SatisfiesPrincipal(id Identity, principal *pbmsp.MSPPrincipal) error {
-	principals, err := collectPrincipals(principal, msp.GetVersion())
+	principals, err := collectPrincipals(principal)
 	if err != nil {
 		return err
 	}
@@ -136,10 +145,6 @@ func (msp *bccspmsp) SatisfiesPrincipal(id Identity, principal *pbmsp.MSPPrincip
 		}
 	}
 	return nil
-}
-
-func (msp *bccspmsp) GetVersion() MSPVersion {
-	return msp.version
 }
 
 func (msp *bccspmsp) GetType() ProviderType {
@@ -436,9 +441,10 @@ func (msp *bccspmsp) getSigningIdentityFromConf(sidInfo *pbmsp.SigningIdentityIn
 
 	privateKey, err := msp.csp.GetKey(publicKey.SKI())
 	if err != nil {
+		mspLogger.Warnf("Unable to extract key [%s] from key store.", hex.EncodeToString(publicKey.SKI()))
 		// KeyStore 里应该没有存储过该私钥，那么就转为密钥导入方法根据密钥信息导出密钥。
 		if sidInfo.PrivateSigner == nil || sidInfo.PrivateSigner.KeyMaterial == nil {
-			return nil, errors.New("key material not found in SigningIdentityInfo")
+			return nil, fmt.Errorf("key material not found in SigningIdentityInfo: [%s]", err.Error())
 		}
 
 		block, _ := pem.Decode(sidInfo.PrivateSigner.KeyMaterial)
@@ -509,6 +515,9 @@ func (msp *bccspmsp) getValidationChain(cert *x509.Certificate, isIntermediateCh
 	return chain, nil
 }
 
+// getCertificateChainIdentifier 给定一个身份 Identity，Identity 是一个接口，如果该接口的本质是 *identity，那么在进行类型断言后，
+// 获取该身份结构中的 x509 证书，然后基于此证书，该证书是证书链的最左端，从第二个证书开始一直到最右端的证书，计算这些证书的 SHA256 哈
+// 希值。
 func (msp *bccspmsp) getCertificateChainIdentifier(id Identity) ([]byte, error) {
 	chain, err := msp.getCertificateChain(id)
 	if err != nil {
@@ -519,7 +528,8 @@ func (msp *bccspmsp) getCertificateChainIdentifier(id Identity) ([]byte, error) 
 }
 
 // getCertificateChain 给定一个身份 Identity，Identity 是一个接口，如果该接口的本质是 *identity，那么在进行类型断言后，
-// 直接调用 getCertificateChainForBCCSPIdentity 方法。注意：*identity 里的 x509 证书不能是 CA 证书，不然会报错。
+// 直接调用 getCertificateChainForBCCSPIdentity 方法，给定一个身份 *identity，该身份结构中含有一个 x509 证书实例，在该
+// 证书实例不是 CA 证书的情况下，获取该证书的验证链。。注意：*identity 里的 x509 证书不能是 CA 证书，不然会报错。
 func (msp *bccspmsp) getCertificateChain(id Identity) ([]*x509.Certificate, error) {
 	switch id := id.(type) {
 	case *identity:
@@ -587,6 +597,91 @@ func (msp *bccspmsp) getUniqueValidationChain(cert *x509.Certificate, opts x509.
 	}
 
 	return chains[0], nil
+}
+
+// validateIdentityOUsV1 检查身份的组织单位是否与 msp 的组织单位兼容。
+func (msp *bccspmsp) validateIdentityOUsV1(id *identity) error {
+	// 检查身份的 OU 是否与此 MSP 识别的 OU 兼容，即交叉点是否为空。
+	if len(msp.ouIdentifiers) > 0 {
+		found := false
+
+		for _, ou := range id.GetOrganizationalUnits() {
+			certificateIdentifiers, exists := msp.ouIdentifiers[ou.OrganizationalUnitIdentifier] // 获取组织单位的证书链哈希
+			if exists {
+				for _, certcertificateIdentifier := range certificateIdentifiers {
+					if bytes.Equal(certcertificateIdentifier, ou.CertifiersIdentifier) {
+						// 该身份所属的某个组织的证书链哈希与 msp 对应组织的证书链哈希一样
+						found = true
+						break
+					}
+				}
+			}
+		}
+
+		if !found {
+			if len(id.GetOrganizationalUnits()) == 0 {
+				return fmt.Errorf("the identity [%s] does not contain organizational unit", id.id.Id)
+			}
+			return fmt.Errorf("none of the organizational units of identity [%s] are in msp [%s]", id.id.Id, msp.name)
+		}
+	}
+	return nil
+}
+
+// validateIdentityOUsV142 当强制要求身份具有一个 OU 角色时，该角色的证书验证链哈希值必须和一个 OU 的证书验证链的哈希值相同。
+func (msp *bccspmsp) validateIdentityOUsV142(id *identity) error {
+	if err := msp.validateIdentityOUsV1(id); err != nil {
+		return err
+	}
+
+	if !msp.ouEnforcement {
+		return nil
+	}
+
+	// 确保身份只有一个特殊 OU，用于区分客户、对等程序和管理员。
+	counter := 0
+	validOUs := make(map[string]*OUIdentifier)
+	if msp.clientOU != nil {
+		validOUs[msp.clientOU.OrganizationalUnitIdentifier] = msp.clientOU
+	}
+
+	if msp.peerOU != nil {
+		validOUs[msp.peerOU.OrganizationalUnitIdentifier] = msp.peerOU
+	}
+
+	if msp.adminOU != nil {
+		validOUs[msp.adminOU.OrganizationalUnitIdentifier] = msp.adminOU
+	}
+
+	if msp.ordererOU != nil {
+		validOUs[msp.adminOU.OrganizationalUnitIdentifier] = msp.ordererOU
+	}
+
+	for _, ou := range id.GetOrganizationalUnits() {
+		nodeOU := validOUs[ou.OrganizationalUnitIdentifier]
+		if nodeOU == nil {
+			continue
+		}
+
+		if !bytes.Equal(nodeOU.CertifiersIdentifier, ou.CertifiersIdentifier) {
+			return fmt.Errorf("certificate identifier for ou [%s] does not match in msp [%s]", ou.OrganizationalUnitIdentifier, msp.name)
+		}
+
+		counter++
+		if counter > 1 {
+			break
+		}
+	}
+
+	if counter == 0 {
+		return fmt.Errorf("the identity [%s] does not have an organizational unit that resolves to client, peer, orderer, or admin role", id.id.Id)
+	}
+
+	if counter > 1 {
+		return fmt.Errorf("the identity [%s] must have a client, a peer, an orderer, or an admin OU role to be valid, not a combination of them", id.id.Id)
+	}
+
+	return nil
 }
 
 // validateIdentity 给定一个身份 *identity，调用 getCertificateChainForBCCSPIdentity 方法，
@@ -661,7 +756,7 @@ func (msp *bccspmsp) validateTLSCAIdentity(cert *x509.Certificate, opts *x509.Ve
 }
 
 func (msp *bccspmsp) validateCertAgainstChain(cert *x509.Certificate, validationChain []*x509.Certificate) error {
-	// 1. 获取签署待验证证书的 CA 的 SKI 标识符。
+	// 1. 获取签署待验证证书的父级证书的 SKI 标识符。
 	ski, err := getSKIFromCert(validationChain[1])
 	if err != nil {
 		return fmt.Errorf("cannot obtain subject key identifier from the certificate of the signer")
@@ -1445,13 +1540,9 @@ func validHostname(host string) bool {
 	return true
 }
 
-func collectPrincipals(principal *pbmsp.MSPPrincipal, version MSPVersion) ([]*pbmsp.MSPPrincipal, error) {
+func collectPrincipals(principal *pbmsp.MSPPrincipal) ([]*pbmsp.MSPPrincipal, error) {
 	switch principal.PrincipalClassification {
 	case pbmsp.MSPPrincipal_COMBINED:
-		if version <= MSPv1_1 {
-			return nil, fmt.Errorf("invalid principal type [%d]", principal.PrincipalClassification)
-		}
-
 		principals := &pbmsp.CombinedPrincipal{}
 		if err := proto.Unmarshal(principal.Principal, principals); err != nil {
 			return nil, fmt.Errorf("failed unmarshaling CombinedPrincipal from principal: [%s]", err.Error())
@@ -1462,7 +1553,7 @@ func collectPrincipals(principal *pbmsp.MSPPrincipal, version MSPVersion) ([]*pb
 		// 到目前为止都还是读取 Principal，没说怎么使用
 		var ps []*pbmsp.MSPPrincipal
 		for _, p := range principals.Principals {
-			if s, err := collectPrincipals(p, version); err == nil {
+			if s, err := collectPrincipals(p); err == nil {
 				ps = append(ps, s...)
 			} else {
 				return nil, err
@@ -1477,14 +1568,9 @@ func collectPrincipals(principal *pbmsp.MSPPrincipal, version MSPVersion) ([]*pb
 
 // getSKIFromCert 获取 x509 证书的 Subject Key Identifier。
 func getSKIFromCert(cert *x509.Certificate) ([]byte, error) {
-	var ski []byte
-
 	for _, ext := range cert.Extensions {
 		if reflect.DeepEqual(ext.Id, asn1.ObjectIdentifier{2, 5, 29, 14}) { // subject key identifier
-			if _, err := asn1.Unmarshal(ext.Value, &ski); err != nil {
-				return nil, err
-			}
-			return ski, nil
+			return ext.Value, nil // ext.Value 存储的是证书公钥的 SHA256 哈希值
 		}
 	}
 
@@ -1493,20 +1579,9 @@ func getSKIFromCert(cert *x509.Certificate) ([]byte, error) {
 
 // getAKIFromCert 获取 x509 证书的 Authority kEY Identifier。
 func getAKIFromCert(crl *x509.RevocationList) ([]byte, error) {
-	type authorityKeyIdentifier struct {
-		KeyIdentifier             []byte  `asn1:"optional,tag:0"`
-		AuthorityCertIssuer       []byte  `asn1:"optional,tag:1"`
-		AuthorityCertSerialNumber big.Int `asn1:"optional,tag:2"`
-	}
-
-	aki := &authorityKeyIdentifier{}
-
 	for _, ext := range crl.Extensions {
 		if reflect.DeepEqual(ext.Id, asn1.ObjectIdentifier{2, 5, 29, 35}) {
-			if _, err := asn1.Unmarshal(ext.Value, aki); err != nil {
-				return nil, err
-			}
-			return aki.KeyIdentifier, nil
+			return ext.Value, nil // ext.Value 存储证书公钥的 SHA256 哈希值
 		}
 	}
 
