@@ -98,7 +98,6 @@ func (ks *fileBasedKeyStore) GetKey(ski []byte) (key Key, err error) {
 	if len(ski) == 0 {
 		return nil, errors.New("if you want to get a key, you should provide a non-nil ski")
 	}
-
 	alias := hex.EncodeToString(ski)
 
 	suffix := ks.getSuffix(alias)

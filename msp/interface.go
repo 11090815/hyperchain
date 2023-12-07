@@ -20,14 +20,6 @@ const (
 	MSPv1_4_3
 )
 
-type ProviderType int
-
-const (
-	HYPERCHAIN ProviderType = iota
-	IDEMIX
-	OTHER
-)
-
 /*⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓*/
 
 type Identity interface {
@@ -86,8 +78,6 @@ type MSP interface {
 	// Setup 配置 MSP。
 	Setup(config *pbmsp.MSPConfig) error
 
-	GetType() ProviderType
-
 	GetIdentifier() string
 
 	GetDefaultSigningIdentity() (SigningIdentity, error)
@@ -106,7 +96,7 @@ type MSP interface {
 type MSPManager interface {
 	IdentityDeserializer
 	Setup(msps []MSP) error
-	GetMSPs() (map[string]MSP, error)
+	GetMSPs() map[string]MSP
 }
 
 /*⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓*/

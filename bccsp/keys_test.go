@@ -1,9 +1,13 @@
 package bccsp
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/x509"
+	"encoding/pem"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -34,4 +38,26 @@ func TestOriginPrivateKeyToPEM(t *testing.T) {
 	default:
 		t.Fatalf("want *ecdsa.PrivateKey, but got %T", key)
 	}
+}
+
+func TestMSP(t *testing.T) {
+	csp, err := NewBCCSP(nil)
+	require.NoError(t, err)
+
+	rawKey, err := os.ReadFile("../msp/testdata/tls/keystore/key.pem")
+	require.NoError(t, err)
+	block, _ := pem.Decode(rawKey)
+	key, err := csp.KeyImport(block.Bytes, &ECDSAPrivateKeyImportOpts{Temporary: true})
+	require.NoError(t, err)
+	ski := key.SKI()
+
+	rawCert, err := os.ReadFile("../msp/testdata/tls/signcerts/cert.pem")
+	require.NoError(t, err)
+	block, _ = pem.Decode(rawCert)
+	cert, err := x509.ParseCertificate(block.Bytes)
+	require.NoError(t, err)
+	publicKey, err := csp.KeyImport(cert, &X509PublicKeyImportOpts{Temporary: true})
+	require.NoError(t, err)
+
+	require.True(t, bytes.Equal(ski, publicKey.SKI()))
 }

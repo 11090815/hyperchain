@@ -123,5 +123,9 @@ func derToPrivateKey(raw []byte) (key interface{}, err error) {
 		}
 	}
 
+	if key, err := x509.ParseECPrivateKey(raw); err == nil {
+		return key, nil
+	}
+
 	return nil, errors.New("invalid key type, it should be *ecdsa.PrivateKey at least")
 }

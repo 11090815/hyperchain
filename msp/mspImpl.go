@@ -9,6 +9,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"math/big"
 	"reflect"
 	"strings"
 	"time"
@@ -95,7 +96,7 @@ func newBCCSPMSP(csp bccsp.BCCSP) MSP {
 	msp := &bccspmsp{}
 	msp.csp = csp
 
-	msp.internalSetupFunc = msp.setupV142
+	msp.internalSetupFunc = msp.setup
 	msp.internalValidateIdentityOUsFunc = msp.validateIdentityOUsV142
 	msp.internalSatisfiesPrincipalInternalFunc = msp.satisfiesPrincipalInternalV142
 	msp.internalSetupAdminsFunc = msp.setupAdminsV142
@@ -145,10 +146,6 @@ func (msp *bccspmsp) SatisfiesPrincipal(id Identity, principal *pbmsp.MSPPrincip
 		}
 	}
 	return nil
-}
-
-func (msp *bccspmsp) GetType() ProviderType {
-	return HYPERCHAIN
 }
 
 // GetIdentifier 返回 msp 的名字。
@@ -444,7 +441,7 @@ func (msp *bccspmsp) getSigningIdentityFromConf(sidInfo *pbmsp.SigningIdentityIn
 		mspLogger.Warnf("Unable to extract key [%s] from key store.", hex.EncodeToString(publicKey.SKI()))
 		// KeyStore 里应该没有存储过该私钥，那么就转为密钥导入方法根据密钥信息导出密钥。
 		if sidInfo.PrivateSigner == nil || sidInfo.PrivateSigner.KeyMaterial == nil {
-			return nil, fmt.Errorf("key material not found in SigningIdentityInfo: [%s]", err.Error())
+			return nil, errors.New("key material not found in SigningIdentityInfo")
 		}
 
 		block, _ := pem.Decode(sidInfo.PrivateSigner.KeyMaterial)
@@ -704,7 +701,6 @@ func (msp *bccspmsp) validateIdentity(id *identity) error {
 		id.validationErr = fmt.Errorf("could not obtain certificate chain: [%s]", err.Error())
 		return id.validationErr
 	}
-
 	// 检查证书是否已被撤销，如果撤销，返回一个非空错误。
 	if err = msp.validateIdentityAgainstChain(id, validationChain); err != nil {
 		id.validationErr = fmt.Errorf("could not validate identity against certificate chain: [%s]", err.Error())
@@ -763,7 +759,7 @@ func (msp *bccspmsp) validateCertAgainstChain(cert *x509.Certificate, validation
 	}
 
 	for _, rl := range msp.RLs {
-		aki, err := getAKIFromCert(rl)
+		aki, err := getAKIFromCrl(rl)
 		if err != nil {
 			return fmt.Errorf("could not obtain authority identifier from the certificate revocation list: [%s]", err.Error())
 		}
@@ -1028,9 +1024,10 @@ func (msp *bccspmsp) setupAdminsV142(conf *pbmsp.HyperchainMSPConfig) error {
 func (msp *bccspmsp) setupRLs(conf *pbmsp.HyperchainMSPConfig) error {
 	msp.RLs = make([]*x509.RevocationList, len(conf.RevocationList))
 	for i, crlRaw := range conf.RevocationList {
-		crl, err := x509.ParseRevocationList(crlRaw)
+		block, _ := pem.Decode(crlRaw)
+		crl, err := x509.ParseRevocationList(block.Bytes)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed setup revocation list: [%s]", err.Error())
 		}
 		msp.RLs[i] = crl
 	}
@@ -1038,45 +1035,45 @@ func (msp *bccspmsp) setupRLs(conf *pbmsp.HyperchainMSPConfig) error {
 	return nil
 }
 
-func (msp *bccspmsp) setupNodeOUs(conf *pbmsp.HyperchainMSPConfig) error {
-	if conf.HyperchainNodeOus == nil {
-		msp.ouEnforcement = false
-	} else {
-		msp.ouEnforcement = conf.HyperchainNodeOus.Enable
+// func (msp *bccspmsp) setupNodeOUs(conf *pbmsp.HyperchainMSPConfig) error {
+// 	if conf.HyperchainNodeOus == nil {
+// 		msp.ouEnforcement = false
+// 	} else {
+// 		msp.ouEnforcement = conf.HyperchainNodeOus.Enable
 
-		if conf.HyperchainNodeOus.ClientOuIdentifier == nil || len(conf.HyperchainNodeOus.ClientOuIdentifier.OrganizationalUnitIdentifier) == 0 {
-			return errors.New("failed setting up node ous, client ou must be non-nil")
-		}
+// 		if conf.HyperchainNodeOus.ClientOuIdentifier == nil || len(conf.HyperchainNodeOus.ClientOuIdentifier.OrganizationalUnitIdentifier) == 0 {
+// 			return errors.New("failed setting up node ous, client ou must be non-nil")
+// 		}
 
-		if conf.HyperchainNodeOus.PeerOuIdentifier == nil || len(conf.HyperchainNodeOus.PeerOuIdentifier.OrganizationalUnitIdentifier) == 0 {
-			return errors.New("failed setting up node ous, peer ou must be non-nil")
-		}
+// 		if conf.HyperchainNodeOus.PeerOuIdentifier == nil || len(conf.HyperchainNodeOus.PeerOuIdentifier.OrganizationalUnitIdentifier) == 0 {
+// 			return errors.New("failed setting up node ous, peer ou must be non-nil")
+// 		}
 
-		// client organizational unit
-		msp.clientOU = &OUIdentifier{OrganizationalUnitIdentifier: conf.HyperchainNodeOus.ClientOuIdentifier.OrganizationalUnitIdentifier}
-		if len(conf.HyperchainNodeOus.ClientOuIdentifier.Certificate) != 0 {
-			// client organizational unit 的证书必须是在 msp 处注册过的 中级证书或者是根证书，一般来说是中级证书吧。
-			certifiersIdentifier, err := msp.getCertifiersIdentifier(conf.HyperchainNodeOus.ClientOuIdentifier.Certificate)
-			if err != nil {
-				return err
-			}
-			msp.clientOU.CertifiersIdentifier = certifiersIdentifier
-		}
+// 		// client organizational unit
+// 		msp.clientOU = &OUIdentifier{OrganizationalUnitIdentifier: conf.HyperchainNodeOus.ClientOuIdentifier.OrganizationalUnitIdentifier}
+// 		if len(conf.HyperchainNodeOus.ClientOuIdentifier.Certificate) != 0 {
+// 			// client organizational unit 的证书必须是在 msp 处注册过的 中级证书或者是根证书，一般来说是中级证书吧。
+// 			certifiersIdentifier, err := msp.getCertifiersIdentifier(conf.HyperchainNodeOus.ClientOuIdentifier.Certificate)
+// 			if err != nil {
+// 				return err
+// 			}
+// 			msp.clientOU.CertifiersIdentifier = certifiersIdentifier
+// 		}
 
-		// peer organizational unit
-		msp.peerOU = &OUIdentifier{OrganizationalUnitIdentifier: conf.HyperchainNodeOus.PeerOuIdentifier.OrganizationalUnitIdentifier}
-		if len(conf.HyperchainNodeOus.PeerOuIdentifier.Certificate) != 0 {
-			// peer organizational unit 的证书必须是在 msp 处注册过的 中级证书或者是根证书，一般来说是中级证书吧。
-			certifiersIdentifier, err := msp.getCertifiersIdentifier(conf.HyperchainNodeOus.PeerOuIdentifier.Certificate)
-			if err != nil {
-				return err
-			}
-			msp.peerOU.CertifiersIdentifier = certifiersIdentifier
-		}
-	}
+// 		// peer organizational unit
+// 		msp.peerOU = &OUIdentifier{OrganizationalUnitIdentifier: conf.HyperchainNodeOus.PeerOuIdentifier.OrganizationalUnitIdentifier}
+// 		if len(conf.HyperchainNodeOus.PeerOuIdentifier.Certificate) != 0 {
+// 			// peer organizational unit 的证书必须是在 msp 处注册过的 中级证书或者是根证书，一般来说是中级证书吧。
+// 			certifiersIdentifier, err := msp.getCertifiersIdentifier(conf.HyperchainNodeOus.PeerOuIdentifier.Certificate)
+// 			if err != nil {
+// 				return err
+// 			}
+// 			msp.peerOU.CertifiersIdentifier = certifiersIdentifier
+// 		}
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
 func (msp *bccspmsp) setupNodeOUsV142(conf *pbmsp.HyperchainMSPConfig) error {
 	if conf.HyperchainNodeOus == nil {
@@ -1180,6 +1177,7 @@ func (msp *bccspmsp) setupOUs(conf *pbmsp.HyperchainMSPConfig) error {
 	msp.ouIdentifiers = make(map[string][][]byte)
 
 	for _, ou := range conf.OrganizationalUnitIdentifiers {
+		// 获取组织单位证书的证书链的哈希值
 		certifiersIdentifier, err := msp.getCertifiersIdentifier(ou.Certificate)
 		if err != nil {
 			return err
@@ -1248,52 +1246,7 @@ func (msp *bccspmsp) setupTLSCAs(conf *pbmsp.HyperchainMSPConfig) error {
 	return nil
 }
 
-// setupV1 设置 msp：
-//  1. 设置 msp 采用的哈希算法，目前仅支持 SHA256 哈希算法；
-//  2. 设置根 ca 和中级 ca 证书列表；
-//  3. 为 msp 设置管理员；
-//  4. 为 msp 设置证书撤销列表；
-//  5. 最终完成 CA 的设置，第 5 步 必须要在第 4 步之后，因为完成 CA 的设置过程中，需要验证 CA 的合法性，这个时候需要检查 CA 是否存在于证书撤销列表中；
-//  6. 设置签名身份；
-//  7. 设置 tls ca 证书；
-//  8. 设置 organizational unit；
-//  9. 检查所设置的管理员身份是否被撤销。
-func (msp *bccspmsp) setupV1(conf *pbmsp.HyperchainMSPConfig) error {
-	if err := msp.preSetupV1(conf); err != nil {
-		return err
-	}
-
-	if err := msp.postSetupV1(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// setupV11 设置 msp：
-//  1. 设置 msp 采用的哈希算法，目前仅支持 SHA256 哈希算法；
-//  2. 设置根 ca 和中级 ca 证书列表；
-//  3. 为 msp 设置管理员；
-//  4. 为 msp 设置证书撤销列表；
-//  5. 最终完成 CA 的设置，第 5 步 必须要在第 4 步之后，因为完成 CA 的设置过程中，需要验证 CA 的合法性，这个时候需要检查 CA 是否存在于证书撤销列表中；
-//  6. 设置签名身份；
-//  7. 设置 tls ca 证书；
-//  8. 设置 organizational unit；
-//  9. 设置节点 organizational unit；
-//  10. 检查所设置的管理员身份是否被撤销，检查管理员是否是 client。
-func (msp *bccspmsp) setupV11(conf *pbmsp.HyperchainMSPConfig) error {
-	if err := msp.preSetupV11(conf); err != nil {
-		return err
-	}
-
-	if err := msp.postSetupV11(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// setupV142 设置 msp：
+// setup 设置 msp：
 //  1. 设置 msp 采用的哈希算法，目前仅支持 SHA256 哈希算法；
 //  2. 设置根 ca 和中级 ca 证书列表；
 //  3. 为 msp 设置管理员；
@@ -1304,20 +1257,7 @@ func (msp *bccspmsp) setupV11(conf *pbmsp.HyperchainMSPConfig) error {
 //  8. 设置 organizational unit；
 //  9. 设置节点 organizational unit；
 //  10. 检查所设置的管理员身份是否被撤销，检查管理员是否是 client 或 admin。
-func (msp *bccspmsp) setupV142(conf *pbmsp.HyperchainMSPConfig) error {
-	if err := msp.preSetupV142(conf); err != nil {
-		return err
-	}
-
-	if err := msp.postSetupV142(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// preSetupV1 必须在 postSetupV1 签名执行，因为必须在 preSetupV1 设置好管理员身份后，postSetupV1 才能有机会验证管理员身份是否被撤销。
-func (msp *bccspmsp) preSetupV1(conf *pbmsp.HyperchainMSPConfig) error {
+func (msp *bccspmsp) setup(conf *pbmsp.HyperchainMSPConfig) error {
 	// 1. 设置 msp 采用的哈希算法，目前仅支持 SHA256 哈希算法。
 	if err := msp.setupCrypto(conf); err != nil {
 		return err
@@ -1359,75 +1299,19 @@ func (msp *bccspmsp) preSetupV1(conf *pbmsp.HyperchainMSPConfig) error {
 		return err
 	}
 
-	return nil
-}
-
-func (msp *bccspmsp) preSetupV11(conf *pbmsp.HyperchainMSPConfig) error {
-	if err := msp.preSetupV1(conf); err != nil {
-		return err
-	}
-
-	if err := msp.setupNodeOUs(conf); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// preSetupV142 相比于 preSetupV1 来说，多了一步设置节点 organizational unit 的步骤。
-func (msp *bccspmsp) preSetupV142(conf *pbmsp.HyperchainMSPConfig) error {
-	if err := msp.preSetupV1(conf); err != nil {
-		return err
-	}
-
+	// 9. 设置 node ou
 	if err := msp.setupNodeOUsV142(conf); err != nil {
 		return err
 	}
 
-	return nil
-}
-
-// postSetupV1 逐一检查在本 msp 处注册的管理员身份是否被撤销。
-func (msp *bccspmsp) postSetupV1() error {
-	for _, admin := range msp.admins {
-		if err := admin.Validate(); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (msp *bccspmsp) postSetupV11() error {
-	if !msp.ouEnforcement {
-		// 检查管理员身份是否被撤销
-		return msp.postSetupV1()
-	}
-
-	// 检查管理员是否是 client
-	principalRaw, err := proto.Marshal(&pbmsp.MSPRole{Role: pbmsp.MSPRole_CLIENT, MspIdentifier: msp.name})
-	if err != nil {
-		return err
-	}
-
-	principal := &pbmsp.MSPPrincipal{
-		PrincipalClassification: pbmsp.MSPPrincipal_ROLE,
-		Principal:               principalRaw,
-	}
-
-	for _, admin := range msp.admins {
-		if err = admin.SatisfiesPrincipal(principal); err != nil {
-			return fmt.Errorf("admin [%s] is invalid", admin.GetIdentifier().Id)
-		}
-	}
-
-	return nil
-}
-
-// postSetupV142 检查管理员是否是 client 或者 admin，如果都不是，则会报错。
-func (msp *bccspmsp) postSetupV142() error {
 	if !msp.ouEnforcement {
 		// 检查在本 msp 处注册的管理员身份是否被撤销
-		return msp.postSetupV1()
+		for _, admin := range msp.admins {
+			if err := admin.Validate(); err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 
 	for _, admin := range msp.admins {
@@ -1568,20 +1452,37 @@ func collectPrincipals(principal *pbmsp.MSPPrincipal) ([]*pbmsp.MSPPrincipal, er
 
 // getSKIFromCert 获取 x509 证书的 Subject Key Identifier。
 func getSKIFromCert(cert *x509.Certificate) ([]byte, error) {
+	var SKI []byte
 	for _, ext := range cert.Extensions {
 		if reflect.DeepEqual(ext.Id, asn1.ObjectIdentifier{2, 5, 29, 14}) { // subject key identifier
-			return ext.Value, nil // ext.Value 存储的是证书公钥的 SHA256 哈希值
+			_, err := asn1.Unmarshal(ext.Value, &SKI)
+			if err != nil {
+				return nil, err
+			}
+
+			return SKI, nil
 		}
 	}
 
 	return nil, errors.New("asn1.ObjectIdentifier{2, 5, 29, 14} is not found in certificate's extensions")
 }
 
-// getAKIFromCert 获取 x509 证书的 Authority kEY Identifier。
-func getAKIFromCert(crl *x509.RevocationList) ([]byte, error) {
+// getAKIFromCrl 获取 x509 证书的 Authority kEY Identifier。
+func getAKIFromCrl(crl *x509.RevocationList) ([]byte, error) {
+	type authorityKeyIdentifier struct {
+		KeyIdentifier             []byte  `asn1:"optional,tag:0"`
+		AuthorityCertIssuer       []byte  `asn1:"optional,tag:1"`
+		AuthorityCertSerialNumber big.Int `asn1:"optional,tag:2"`
+	}
+	aki := authorityKeyIdentifier{}
 	for _, ext := range crl.Extensions {
 		if reflect.DeepEqual(ext.Id, asn1.ObjectIdentifier{2, 5, 29, 35}) {
-			return ext.Value, nil // ext.Value 存储证书公钥的 SHA256 哈希值
+			_, err := asn1.Unmarshal(ext.Value, &aki)
+			if err != nil {
+				return nil, err
+			}
+
+			return aki.KeyIdentifier, nil
 		}
 	}
 

@@ -8,11 +8,8 @@ package msp;
 // an MSP. The Config field should be unmarshalled in a way
 // that depends on the Type
 message MSPConfig {
-    // Type 表示 MSP 的类型；默认类型为 HYPERCHAIN，用于执行基于 X.509 的提供程序。
-    int32 type = 1;
-
     // Config HyperchainMSPConfig 结构体的 protobuf 编码的字节。
-    bytes config = 2;
+    bytes config = 1;
 }
 
 // HyperchainMSPConfig collects all the configuration information for
@@ -44,7 +41,7 @@ message HyperchainMSPConfig {
     repeated bytes admins = 4;
 
     // RevocationList 证书撤销列表。
-    // x509 证书的 ASN.1 DER 格式编码的数据。
+    // x509 证书的 ASN.1 DER PEM 格式编码的数据。
     repeated bytes revocation_list = 5;
 
     // SigningIdentity holds information on the signing identity

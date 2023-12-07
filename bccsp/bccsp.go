@@ -23,6 +23,7 @@ type BCCSP interface {
 	//	- ECDSAPKIXPublicKeyImportOpts：导入 ECDSA 公钥
 	//	- ECDSAPrivateKeyImportOpts：导入 ECDSA 私钥
 	//	- AESKeyImportOpts：导入 AES 密钥
+	//	- X509PublicKeyImportOpts：导入 x509 公钥
 	KeyImport(raw interface{}, opts KeyImportOpts) (Key, error)
 
 	// GetKey 根据密钥的唯一标识符获取密钥。

@@ -69,7 +69,7 @@ func (*ecdsaPrivateKeyImporter) KeyImport(raw interface{}, opts KeyImportOpts) (
 
 	key, err := derToPrivateKey(der)
 	if err != nil {
-		return nil, fmt.Errorf("failed converting to ecdsa private key:[ %s]", err.Error())
+		return nil, fmt.Errorf("failed converting to ecdsa private key: [%s]", err.Error())
 	}
 
 	ecdsaSK, ok := key.(*ecdsa.PrivateKey)

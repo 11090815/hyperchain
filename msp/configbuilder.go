@@ -107,7 +107,7 @@ func getMSPConfig(dir string, id string, signingIdentityInfo *pbmsp.SigningIdent
 	intermediatecertsPEM, err := getPEMMaterialFromDir(intermediatecertsDir)
 	if err != nil && os.IsNotExist(err) {
 		mspLogger.Warnf("Intermediate certificate folder not found at [%s], skipping.", intermediatecertsDir)
-	} else {
+	} else if err != nil {
 		return nil, fmt.Errorf("couldn't load a valid intermediate certificate from directory [%s]: [%s]", intermediatecertsDir, err.Error())
 	}
 
@@ -190,7 +190,7 @@ func getMSPConfig(dir string, id string, signingIdentityInfo *pbmsp.SigningIdent
 			}
 		}
 	} else {
-		return nil, fmt.Errorf("failed loading configuration file at [%s]: [%s]", configFile, err.Error())
+		mspLogger.Warnf("Failed loading configuration file at [%s]: [%s]", configFile, err.Error())
 	}
 
 	cryptoConfig := &pbmsp.HyperchainCryptoConfig{
@@ -216,10 +216,7 @@ func getMSPConfig(dir string, id string, signingIdentityInfo *pbmsp.SigningIdent
 		return nil, err
 	}
 
-	return &pbmsp.MSPConfig{
-		Config: raw,
-		Type:   int32(HYPERCHAIN),
-	}, nil
+	return &pbmsp.MSPConfig{Config: raw}, nil
 }
 
 // getPEMMaterialFromDir 从给定的目录中将所有 pem 格式编码的数据材料读取出来。
