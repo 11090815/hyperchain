@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-option go_package = "github.com/11090815/hyperchain/protos-go/msp";
+option go_package = "github.com/11090815/hyperchain/protos-go/pbmsp";
 
-package msp;
+package pbmsp;
 
 // MSPConfig collects all the configuration information for
 // an MSP. The Config field should be unmarshalled in a way

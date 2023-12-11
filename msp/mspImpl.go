@@ -122,16 +122,12 @@ func (msp *bccspmsp) IsWellFormed(identity *pbmsp.SerializedIdentity) error {
 		return fmt.Errorf("the type of PEM should be \"CERTIFICATE\" or \"\", shouldn't be [%s]", block.Type)
 	}
 
-	cert, err := x509.ParseCertificate(block.Bytes)
+	_, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {
 		return err
 	}
 
-	if !isECDSASignedCert(cert) {
-		return nil
-	}
-
-	return isIdentitySignedInCanonicalForm(cert.Signature, identity.Mspid, identity.IdBytes)
+	return nil
 }
 
 // SatisfiesPrincipal 调用 internalSatisfiesPrincipalInternalFunc 方法验证 principal。
@@ -973,7 +969,7 @@ func (msp *bccspmsp) finalizeSetupCAs() error {
 			return err
 		}
 		if err := msp.validateCAIdentity(caID.(*identity)); err != nil {
-			return err
+			return fmt.Errorf("ca certificate is invalid: [%s]", err.Error())
 		}
 	}
 
@@ -1326,25 +1322,6 @@ func (msp *bccspmsp) setup(conf *pbmsp.HyperchainMSPConfig) error {
 }
 
 /*⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓*/
-
-// isIdentitySignedInCanonicalForm 一般情况下，该方法都只会返回 nil。
-func isIdentitySignedInCanonicalForm(sig []byte, mspID string, identityPEM []byte) error {
-	r, s, err := bccsp.UnmarshalECDSASignature(sig)
-	if err != nil {
-		return err
-	}
-
-	expectedSig, err := bccsp.MarshalECDSASignature(r, s)
-	if err != nil {
-		return err
-	}
-
-	if !bytes.Equal(expectedSig, sig) {
-		return fmt.Errorf("identity [%s] for MSP [%s] has a non canonical signature", identityPEM, mspID)
-	}
-
-	return nil
-}
 
 // verifyLegacyNameConstraints 给定一个证书链，这个证书链中的第一个证书是端证书，最后一个证书是根证书。
 //  1. 所以如果给定的证书链中只有一个证书，那么该证书为 CA 证书，不必检查，直接返回 nil，否则进入第 2 步；

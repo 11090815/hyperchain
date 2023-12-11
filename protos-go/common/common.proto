@@ -1,0 +1,147 @@
+syntax = "proto3";
+
+option go_package = "github.com/11090815/hyperchain/protos-go/pbcommon";
+
+package pbcommon;
+
+import "github.com/google/protobuf/timestamp.proto";
+
+enum Status {
+    UNKNOWN                     = 0;
+    SUCCESS                     = 200;
+    BAD_REQUEST                 = 400;
+    FORBIDDEN                   = 403;
+    NOT_FOUND                   = 404;
+    REQUEST_ENTITY_TOO_LARGE    = 413;
+    INTERNAL_SERVER_ERROR       = 500;
+    NOT_IMPLEMENTED             = 501;
+    SERVICE_UNAVAILABLE         = 503;
+}
+
+enum HeaderType {
+    MESSAGE                 = 0; // 用于已签名但不透明的报文
+    CONFIG                  = 1; // 用于表达通道配置的信息
+    CONFIG_UPDATE           = 2; // 用于更新通道配置的 transaction
+    ENDORSER_TRANSACTION    = 3; // SDK 用于提交基于背书人的交易
+    ORDERER_TRANSACTION     = 4; // 用于排序者内部管理
+    DELIVER_SEEK_INFO       = 5; // 用作提交的信封信息的类型，以指示交付应用程序接口寻求
+    CHAINCODE_PACKAGE       = 6; // 用于打包链码工件以进行安装
+}
+
+// BlockMetadataIndex 该枚举列出了区块元数据数组的索引
+enum BlockMetadataIndex {
+    SIGNATURES          = 0; // 区块签名的区块元数据数组位置
+    LAST_CONFIG         = 1 [deprecated=true]; // 存储最后一个配置区块序列号的区块元数据数组位置
+    TRANSACTION_FILTER  = 2; // 用于存储无效交易的序列化位数组过滤器
+    ORDERER             = 3 [deprecated=true]; // 用于存储排序者的操作元数据
+    COMMIT_HASH         = 4; // 用于存储 TRANSACTIONS_FILTER、State Updates（状态更新）的哈希值的区块元数据数组位置、 和上一个区块的 COMMIT_HASH
+}
+
+// LastConfig 是元数据信息的编码值，在 LAST_CONFIGURATION 块元数据索引中编码
+message LastConfig {
+    uint64 index = 1;
+}
+
+// Metadata 是用于编码区块元数据的通用结构
+message Metadata {
+    bytes value                             = 1;
+    repeated MetadataSignature signatures   = 2;
+}
+
+message MetadataSignature {
+    bytes signature_header  = 1;
+    bytes signature         = 2;
+    bytes identifier_header = 3; // 编码后的 IdentifierHeader。如果签名头为空，则用 ID 来标识创建者。
+}
+
+// 当创建者可以通过 ID 被引用时，IdentifierHeader 可以替代 SignatureHeader。
+message IdentifierHeader {
+    uint32 identifier   = 1; // 代表信息创建者的唯一标识符
+    bytes nonce         = 2; // 只能使用一次的任意数字。可用于检测重放攻击。
+}
+
+message Header {
+    bytes channel_header    = 1;
+    bytes signature_header  = 2;
+}
+
+message ChannelHeader {
+    int32 type = 1;
+
+    // Version 表示报文协议版本
+    int32 version = 2;
+
+    // Timestamp 发件人创建消息的当地时间
+    google.protobuf.Timestamp timestamp = 3;
+
+    // 该消息绑定的信道的标识符
+    string channel_id = 4;
+
+    // 端到端使用的唯一标识符。
+    //  - 由终端用户或 SDK 等高层设置
+    //  - 传递给认可者（认可者将检查唯一性）
+    //  - 由于头被原封不动地传递，它将被提交者检索（这里也将进行唯一性检查）
+    //  - 将存储在分类账中
+    string tx_id = 5;
+
+    // 生成此标头的时间，时间是根据块高度定义的。生成响应的时间。该字段可确定一个逻辑时间窗口。只有满足以下两个条件，对等方才会接受提议响应：
+    //  1. 报文中指定的时间是当前时间。
+    //  2. 在此时间段内，该报文只出现过一次（即未被重放）。
+    uint64 epoch = 6;
+
+    bytes extension = 7;
+
+    // 如果使用了互操作 TLS，则表示客户端 TLS 证书的哈希值
+    bytes tls_cert_hash = 8;
+}
+
+message SignatureHeader {
+    // 消息的创建者，proto.Marshal(pbmsp.SerializedIdentity)
+    bytes creator   = 1;
+    // 用于防范重放攻击
+    bytes nonce     = 2;
+}
+
+// 消息的有效载荷，包括消息头
+message Payload {
+    // header 包含消息生成者的身份和用于防重放的标识符
+    Header header = 1;
+    bytes data = 2;
+}
+
+message Envelope {
+    // 信封内的内容，proto.Marshal(Payload)
+    bytes payload = 1;
+
+    // 消息生成者的签名
+    bytes signature = 2;
+}
+
+// 这是 orderer 和 peer 共享的区块。请注意，BlockHeader 链接到前
+// 一个 BlockHeader，BlockData 哈希值嵌入到 BlockHeader 中。 这样，
+// 数据包含在哈希值中，而元数据不包含在哈希值中。
+message Block {
+    BlockHeader header = 1;
+    BlockData data = 2;
+    BlockMetadata metadata = 3;
+}
+
+message BlockHeader {
+    uint64 number = 1; // 区块高度
+    bytes previous_hash = 2; // 上一个区块的哈希
+    bytes data_hash = 3; // 区块哈希
+}
+
+message BlockData {
+    repeated bytes data = 1;
+}
+
+message BlockMetadata {
+    repeated bytes metadata = 1;
+}
+
+// OrdererBlockMetadata 定义了由排序服务设置的元数据。
+message OrdererBlockMetadata {
+    LastConfig last_config = 1;
+    bytes consenter_metadata = 2;
+}

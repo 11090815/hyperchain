@@ -63,10 +63,13 @@ type SigningIdentity interface {
 }
 
 type IdentityDeserializer interface {
-	// DeserializeIdentity 返序列化身份信息。
+	// DeserializeIdentity 返序列化身份信息，提取身份信息中的证书信息，然后基于证书信息构建 Identity，并将
+	// 构建的 Identity 返回出来。
 	DeserializeIdentity(serializedIdentity []byte) (Identity, error)
 
-	// IsWellFormed
+	// IsWellFormed 检查身份信息的证书部分内容，证书部分内容是以 ASN.1 DER PEM 格式组织的，首先就是检查利用
+	// pem.Decode() 方法得到的 pem.Block 是否正常，并且 rest 部分应当是空的，其次就是解析 pem.Block.Bytes
+	// 能否被顺利解析成 x509.Certificate，能得话，提供的 pbmsp.SerializedIdentity 的格式就是正确的。
 	IsWellFormed(identity *pbmsp.SerializedIdentity) error
 }
 

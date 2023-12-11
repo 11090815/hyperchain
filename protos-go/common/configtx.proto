@@ -1,0 +1,55 @@
+syntax = "proto3";
+
+option go_package = "github.com/11090815/hyperchain/protos-go/pbcommon";
+
+package pbcommon;
+
+import "common.proto";
+import "policies.proto";
+
+message ConfigEnvelope {
+    Config config = 1;
+    Envelope last_update = 2;
+}
+
+message Config {
+    uint64 sequence = 1;
+    ConfigGroup channel_group = 2;
+}
+
+message ConfigUpdateEnvelope {
+    bytes config_update = 1;
+    repeated ConfigSignature signatures = 2;
+}
+
+message ConfigUpdate {
+    string channel_id = 1; // 该配置更新适用于哪个通道。
+    ConfigGroup read_set = 2; // ReadSet 明确列出了已读取的配置部分，该部分应该是稀疏的，只设置了版本。
+    ConfigGroup write_set = 3; // WriteSet 列出已写入配置的部分，其中应包括更新的版本。
+    map<string, bytes> isolated_data = 4; // 不反映在生成的 Config 中，但仍需用于其他目的的数据。 例如，rscc_seed_data。
+}
+
+message ConfigGroup {
+    uint64 version = 1;
+    map<string, ConfigGroup> groups = 2;
+    map<string, ConfigValue> values = 3;
+    map<string, ConfigPolicy> policies = 4;
+    string mod_policy = 5;
+}
+
+message ConfigValue {
+    uint64 version = 1;
+    bytes value = 2;
+    string mod_policy = 3;
+}
+
+message ConfigPolicy {
+    uint64 version = 1;
+    Policy policy = 2;
+    string mod_policy = 3;
+}
+
+message ConfigSignature {
+    bytes signature_header = 1;
+    bytes signature = 2;
+}

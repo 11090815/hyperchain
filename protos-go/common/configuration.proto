@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+option go_package = "github.com/11090815/hyperchain/protos-go/pbcommon";
+
+package pbcommon;
+
+message HashAlgorithm {
+    // 目前仅支持 SHA256。
+    string name = 1;
+}
+
+message BlockDataHashStructure {
+    // 宽度指定计算 BlockDataHash 时使用的 Merkle 树的宽度，以便复制平面散列，将此宽度设置为 MAX_UINT32
+    uint32 width = 1;
+}
+
+message OrdererAddress {
+    repeated string addresses = 1;
+}
+
+// Consenter 代表一个共识节点
+message Consenter {
+    uint32 id = 1;
+    string host = 2;
+    uint32 port = 3;
+    string msp_id = 4;
+    bytes identity = 5;
+    bytes client_tls_cert = 6;
+    bytes server_tls_cert = 7;
+}
+
+message Orderers {
+    repeated Consenter consenters = 1;
+}
+
+// Consortium 表示创建通道的联盟上下文信息。
+message Consortium {
+    string name = 1;
+}
+
+message Capabilities {
+    map<string, Capability> capabilities = 1;
+}
+
+message Capability {}

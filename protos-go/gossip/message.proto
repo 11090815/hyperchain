@@ -1,0 +1,283 @@
+syntax = "proto3";
+
+option go_package = "github.com/11090815/hyperchain/protos-go/gossip";
+
+package gossip;
+
+message Envelope {
+    // Payload: proto.Marshal(*GossipMessage)
+    bytes           payload         = 1;
+    // Signature: sign(Payload)
+    bytes           signature       = 2;
+    SecretEnvelope  secret_envelope = 3;
+}
+
+message SecretEnvelope {
+    // Payload: proto.Marshal(*Secret)
+    bytes payload = 1;
+    bytes signature = 2;
+}
+
+// Secret 是一个实体，当接收 Envelope 的远程对等方不应该知道秘密的内容时，可能会从 Envelope 中省略。
+message Secret {
+    oneof content {
+        string internal_endpoint = 1;
+    }
+}
+
+message GossipMessage {
+    // Nonce 用于测试
+    uint64 nonce = 1;
+
+    bytes channel = 2;
+
+    enum Tag {
+        UNDEFINED       = 0;
+        EMPTY           = 1;
+        ORG_ONLY        = 2;
+        CHAN_ONLY       = 3;
+        CHAN_AND_ORG    = 4;
+        CHAN_OR_ORG     = 5;
+    }
+
+    // Tag 决定允许将报文转发给哪些 peer 节点。
+    Tag tag = 3;
+
+    oneof content {
+        AliveMessage        alive_msg   = 4;
+        MembershipRequest   mem_req     = 5;
+        MembershipResponse  mem_res     = 6;
+
+        // 账本区块
+        DataMessage data_msg = 7;
+
+        // push / pull
+        GossipHello hello       = 8;
+        DataDigest  data_dig    = 9;
+        DataRequest data_req    = 10;
+        DataUpdate  data_update = 11;
+
+        // 空消息，用于 ping。
+        Empty empty = 12;
+
+        // 用于建立连接的消息。
+        ConnEstablish conn = 13;
+
+        // 用于传递状态消息。
+        StateInfo state_info = 14;
+
+        // 用于发送状态信息集。
+        StateInfoSnapshot state_snapshot = 15;
+
+        StateInfoPullRequest state_info_pull_req = 16;
+
+        // 用于向远程 peer 节点请求一组区块。
+        RemoteStateRequest state_request = 17;
+
+        // RemoteStateResponse 用于向远程 peer 节点发送一组区块。
+        RemoteStateResponse state_response = 18;
+
+        // LeadershipMessage 在领导者选举期间发送，以通知远程同伴同伴宣布自己为领导者的意图。
+        LeadershipMessage leadership_msg = 19;
+
+        // PeerIdentity 用于了解其他 peer 节点的证书。
+        PeerIdentity peer_identity = 20;
+
+        Acknowledgement ack = 21;
+
+        // 用于请求秘密信息。
+        RemotePvtDataRequest private_req = 22;
+
+        // 用于回复 RemotePvtDataRequest 请求。
+        RemotePvtDataResponse private_res = 23;
+
+        // 封装私人数据，用于在背书后分发私人 rwset。
+        PrivateDataMessage private_data = 24;
+    }
+}
+
+message AliveMessage {
+    Member      membership  = 1;
+    PeerTime    timestamp   = 2;
+    // Identity: proto.Marshal(*pbmsp.SerializedIdentity)
+    bytes identity = 3;
+}
+
+// MembershipRequest 用于向远程 peer 询问成员信息。
+message MembershipRequest {
+    Envelope self_information = 1;
+    repeated bytes known = 2;
+}
+
+// MembershipResponse 用来回复 MembershipRequest。
+message MembershipResponse {
+    repeated Envelope alive = 1;
+    repeated Envelope dead = 2;
+}
+
+// DataMessage 是一个包含区块的消息。
+message DataMessage {
+    Payload payload = 1;
+}
+
+message GossipHello {
+    uint64 nonce = 1;
+    bytes metadata = 2;
+    PullMsgType msg_type = 3;
+}
+
+message DataDigest {
+    uint64 nonce = 1;
+    repeated bytes digests = 2;
+    PullMsgType msg_type = 3;
+}
+
+// DataRequest 用于向远程节点请求特定区块。
+message DataRequest {
+    uint64 nonce = 1;
+    repeated bytes digests = 2;
+    PullMsgType msg_type = 3;
+}
+
+// DataUpdate 是 pull 阶段的最后一条信息，由接收方发送给发起方
+message DataUpdate {
+    uint64 nonce = 1;
+    repeated Envelope data = 2;
+    PullMsgType msg_type = 3;
+}
+
+// Empty 用于 ping。
+message Empty {}
+
+// ConnEstablish 用于两个 peer 节点之间通过握手建立连接，握手时用于相互之间证明各自的身份。
+message ConnEstablish {
+    bytes   pki_id          = 1;
+    bytes   identity        = 2;
+    bytes   tls_cert_hash   = 3;
+    bool    probe           = 4;
+}
+
+// StateInfo 用于一个 peer 节点向其他 peer 节点传递自己的状态信息。
+message StateInfo {
+    PeerTime    timestamp   = 1;
+    bytes       pki_id      = 2;
+    // ChannelMAC 是一个认证码，用来证明 peer 节点知晓 channel 的名字。
+    bytes       channel_MAC = 3;
+    Properties  properties  = 4;
+}
+
+message Properties {
+    uint64              ledger_height   = 1;
+    bool                left_channel    = 2;
+    repeated Chaincode  chaincodes      = 3;
+}
+
+message Chaincode {
+    string  name        = 1;
+    string  version     = 2;
+    bytes   metadata    = 3;
+}
+
+// StateInfoSnapshot 是 StateInfo 的聚合。
+message StateInfoSnapshot {
+    repeated Envelope elements = 1;
+}
+
+// StateInfoPullRequest 用于向远程 peer 节点获取 StateInfoSnapshot。
+message StateInfoPullRequest {
+    bytes channel_MAC = 1;
+}
+
+// RemoteStateRequest 用于向远程 peer 节点请求一组区块。
+message RemoteStateRequest {
+    uint64 start_seq_num = 1;
+    uint64 end_seq_num = 2;
+}
+
+// RemoteStateResponse 用于向远程 peer 节点发送一组区块。
+message RemoteStateResponse {
+    repeated Payload payloads = 1;
+}
+
+// Payload 包含一个区块。
+message Payload {
+    uint64 seq_num = 1;
+    bytes data = 2;
+    repeated bytes private_data = 3;
+}
+
+// LeadershipMessage 在领导者选举期间发送，以通知远程同伴同伴宣布自己为领导者的意图
+message LeadershipMessage {
+    bytes pki_id = 1;
+    PeerTime timestamp = 2;
+    bool is_declaration = 3;
+}
+
+// PeerIdentity 定义了 peer 节点的身份。用于让其他 peer 节点了解某个 peer 节点的身份。
+message PeerIdentity {
+    bytes pki_id = 1;
+    bytes cert = 2;
+    bytes metadata = 3;
+}
+
+message Acknowledgement {
+    string error = 1;
+}
+
+// RemotePvtDataRequest 信息，用于请求丢失的私有 rwset。
+message RemotePvtDataRequest {
+    repeated PvtDataDigest digests = 1;
+}
+
+// PvtDataDigest 定义了私有数据的摘要。
+message PvtDataDigest {
+    string tx_id        = 1;
+    string namespace    = 2;
+    string collection   = 3;
+    uint64 block_seq    = 4;
+    uint64 seq_in_block = 5;
+}
+
+// RemotePvtDataResponse 用于响应对秘密消息的请求。
+message RemotePvtDataResponse {
+    repeated PvtDataElement elements = 1;
+}
+
+message PvtDataElement {
+    PvtDataDigest digest = 1;
+    repeated bytes payload = 2;
+}
+
+// PrivateDataMessage: 包含私人数据信息的信息，在交易获得认可后分发
+message PrivateDataMessage {
+    PrivatePayload payload = 1;
+}
+
+message PrivatePayload {
+    string collection_name = 1;
+    string namespace = 2;
+    string tx_id = 3;
+    bytes private_rwset = 4;
+    uint64 private_sim_height = 5;
+
+}
+
+// PullMsgType pull 消息的类型。
+enum PullMsgType {
+    UNDEFINED       = 0;
+    BLOCK_MSG       = 1;
+    IDENTITY_MSG    = 2;
+}
+
+// PeerTime 定义了 peer 生命的逻辑时间。
+message PeerTime {
+    uint64 inc_num = 1;
+    uint64 seq_num = 2;
+}
+
+// Member 持有 peer 的成员相关信息。
+message Member {
+    string endpoint = 1;
+    bytes metadata = 2;
+    bytes pki_id = 3;
+}

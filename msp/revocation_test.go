@@ -83,3 +83,24 @@ func TestIdentityPolicyPrincipalAganistRevokedIdentity(t *testing.T) {
 	require.Error(t, err)
 	t.Log(err)
 }
+
+func TestRevokedIntermediateCA(t *testing.T) {
+	dir := "testdata/revokedica"
+	conf, err := GetLocalMSPConfig(dir, "SampleOrg")
+	require.NoError(t, err)
+	
+	csp, err := bccsp.NewBCCSP(bccsp.NewFakeKeyStore())
+	require.NoError(t, err)
+	msp := newBCCSPMSP(csp)
+
+	ks, err := bccsp.NewFileBasedKeyStore(filepath.Join(dir, "keystore"), true)
+	require.NoError(t, err)
+	csp2, err := bccsp.NewBCCSP(ks)
+	require.NoError(t, err)
+
+	msp.(*bccspmsp).csp = csp2
+
+	err = msp.Setup(conf)
+	require.Error(t, err)
+	t.Log(err)
+}

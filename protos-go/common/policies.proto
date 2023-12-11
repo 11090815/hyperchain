@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+option go_package = "github.com/11090815/hyperchain/protos-go/pbcommon";
+
+package pbcommon;
+
+import "github.com/11090815/hyperchain/protos-go/msp/msp_principal.proto";
+
+// Policy 表达了一个 orderer 可以评估的策略。
+message Policy {
+    enum PolicyType {
+        UNKNOWN = 0;
+        SIGNATURE = 1;
+        MSP = 2;
+        IMPLICIT_META = 3;
+    }
+    int32 type = 1;
+    bytes value = 2;
+}
+
+// SignaturePolicyEnvelope 封装了签名策略，并包含一个版本以备未来增强之用。
+message SignaturePolicyEnvelope {
+    int32 version = 1;
+    SignaturePolicy rule = 2;
+    repeated msp.MSPPrincipal identities = 3;
+}
+
+// SignaturePolicy 是一个递归消息结构，它定义了一个轻量级 DSL，用于描述比 "exactly this signature" 更复杂的策略。 
+// NOutOf 运算符足以表达 AND 和 OR，当然也可以表达 N 个以下 M 个策略中的 N 个。SignedBy 表示签名来自有效证书，该
+// 证书由字节中指定的可信机构签署。 如果是自签证书，则是证书本身，如果是传统证书，则是 CA。
+message SignaturePolicy {
+    message NOutOf {
+        int32 n = 1;
+        repeated SignaturePolicy rules = 2;
+    }
+    oneof Type {
+        int32 signed_by = 1;
+        NOutOf n_out_of = 2;
+    }
+}
+
+// ImplicitMetaPolicy 是一种取决于配置层次性质的策略类型。它是隐式的，因为规则是根据子策略的数
+// 量隐式生成的。说它是元策略，是因为它只取决于其他策略的结果。评估时，该策略会遍历所有直接子分组，
+// 检索名称为 sub_policy 的策略，评估集合并应用该规则。例如，有 4 个子组，策略名称为 "foo"，
+// ImplicitMetaPolicy 会检索每个子组，检索每个子组的策略 "foo"，对其进行评估，在 ANY 的情况下，
+// 满足 1 个签名即可，ALL 需要 4 个签名，MAJORITY 需要 3 个签名。
+message ImplicitMetaPolicy {
+    enum Rule {
+        ANY = 0; // 要求满足任意子策略，如果不存在子策略，则总是返回 true
+        ALL = 1; // 要求满足所有子政策的要求
+        MAJORITY = 2; // 要求满足绝大多数（超过半数）次级政策的要求
+    }
+    string sub_policy = 1;
+    Rule rule = 2;
+}
+
+// ApplicationPolicy 捕获了在应用程序级别设置和评估的不同策略类型。
+message ApplicationPolicy {
+    oneof Type {
+        // 如果指定策略为 MSP principals 签名的组合（使用阈值门），则使用 SignaturePolicyEnvelope 类型。
+        SignaturePolicyEnvelope signature_policy_envelope = 1;
+        // ChannelConfigPolicyReference 用于将策略指定为引用通道配置中定义的策略的字符串。
+        string channel_config_policy_reference = 2;
+    }
+}

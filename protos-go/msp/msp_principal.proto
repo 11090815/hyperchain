@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-option go_package = "github.com/11090815/hyperchain/protos-go/msp";
+option go_package = "github.com/11090815/hyperchain/protos-go/pbmsp";
 
-package msp;
+package pbmsp;
 
 // msp_principal.proto contains proto messages defining the generalized
 // MSP notion of identity called an MSPPrincipal.  It is used as part of

@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+option go_package = "github.com/11090815/hyperchain/protos-go/orderer";
+
+package orderer;
+
+message ConsensusType {
+    string type = 1;
+    bytes metadata = 2;
+    // State 定义了 orderer 的运行模式，通常用于共识型迁移。正常（NORMAL）是指正常运行时，
+    // 共识类型迁移不会也不能进行。维护（MAINTENANCE）是指可以更改共识类型。
+    enum State {
+        STATE_NORMAL = 0;
+        STATE_MAINTENANCE = 1;
+    }
+    // 该状态会发出信号，让排序服务进入维护模式，通常是为了进行共识型迁移。
+    State state = 3;
+}
+
+message BatchSize {
+    // 现在只需指定信息的数量，将来我们可能会允许以字节为单位指定信息的大小
+    uint32 max_message_count = 1;
+    // 批次中序列化报文的字节数不能超过此值。
+    uint32 absolute_max_bytes = 2;
+    // 批次中序列化报文的字节数不应超过此值。
+    uint32 preferred_max_bytes = 3;
+}

@@ -69,7 +69,7 @@ func TestX509CertExpiresAt(t *testing.T) {
 	certPEM, err := os.ReadFile(filepath.Join("testdata", "goodcert.pem"))
 	require.NoError(t, err)
 
-	sID := &msp.SerializedIdentity{
+	sID := &pbmsp.SerializedIdentity{
 		IdBytes: certPEM,
 	}
 
@@ -85,7 +85,7 @@ func TestX509InvalidCertExpiresAt(t *testing.T) {
 	badCertPEM, err := os.ReadFile(filepath.Join("testdata", "badcert.pem"))
 	require.NoError(t, err)
 
-	sID := &msp.SerializedIdentity{
+	sID := &pbmsp.SerializedIdentity{
 		IdBytes: badCertPEM,
 	}
 

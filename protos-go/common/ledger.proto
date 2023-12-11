@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+option go_package = "github.com/11090815/hyperchain/protos-go/pbcommon";
+
+package pbcommon;
+
+message BlockchainInfo {
+    uint64 height = 1;
+    bytes current_block_hash = 2;
+    bytes previous_block_hash = 3;
+    // 如果通道是从快照引导的，则指定引导快照信息。如果通道不是从快照引导，则该信息为空。
+    BootstrappingSnapshotInfo boot_strapping_snapshot_info = 4;
+}
+
+// 包含引导快照的信息。
+message BootstrappingSnapshotInfo {
+    uint64 last_block_in_snapshot = 1;
+}

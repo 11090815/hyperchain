@@ -14,7 +14,7 @@ import (
 
 // ExpiresAt 给定一个 &msp.SerializedIdentity{} 的序列化数据，返回其中节点身份证书的过期时间。
 func ExpiresAt(identityBytes []byte) time.Time {
-	sID := &msp.SerializedIdentity{}
+	sID := &pbmsp.SerializedIdentity{}
 	if err := proto.Unmarshal(identityBytes, sID); err != nil {
 		return time.Time{}
 	}
@@ -24,7 +24,7 @@ func ExpiresAt(identityBytes []byte) time.Time {
 // TrackExpiration 传入的第二个参数 serverCert 是 x509 身份证书的 ASN.1 DER PEM 格式的数据。传入的第三个参数 clientCertChain 是一连串的客户端的 x509 身份证书
 // 的 ASN.1 DER PEM 格式的数据。
 func TrackExpiration(tls bool, serverCrt []byte, clientCertChain [][]byte, sIDBytes []byte, info MessageFunc, warn MessageFunc, now time.Time, s Scheduler) {
-	sID := &msp.SerializedIdentity{}
+	sID := &pbmsp.SerializedIdentity{}
 	if err := proto.Unmarshal(sIDBytes, sID); err != nil {
 		return
 	}
