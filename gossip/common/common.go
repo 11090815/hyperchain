@@ -3,11 +3,15 @@ package common
 import "encoding/hex"
 
 // PKIid 的计算方法如下所示：
-//	1. 对 api.PeerIdentity 进行 protobuf 的反序列化，得到 *pbmsp.SerializedIdentity{mspid, cert}；
-//	2. 然后计算 sha256.Sum(mspid||cert)，其中 mspid 是 msp 的 id，cert 是节点的 ASN.1 DER PEM 格式的 x509 证书；
-//	3. 将第二步得到的值作为 PKIid。
+//  1. 对 api.PeerIdentity 进行 protobuf 的反序列化，得到 *pbmsp.SerializedIdentity{mspid, cert}；
+//  2. 然后计算 sha256.Sum(mspid||cert)，其中 mspid 是 msp 的 id，cert 是节点的 ASN.1 DER PEM 格式的 x509 证书；
+//  3. 将第二步得到的值作为 PKIid。
 type PKIid []byte
 
+// MessageReplacingPolicy 返回：
+// MESSAGE_INVALIDATES（如果该消息使那条消息无效）；
+// MESSAGE_INVALIDATED（如果此消息被那条该消息搞得无效）；
+// MESSAGE_NO_ACTION。
 type MessageReplacingPolicy func(this interface{}, that interface{}) InvalidationResult
 
 type InvalidationResult int

@@ -169,10 +169,12 @@ type Consenter struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Id            uint32 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	Host          string `protobuf:"bytes,2,opt,name=host,proto3" json:"host,omitempty"`
-	Port          uint32 `protobuf:"varint,3,opt,name=port,proto3" json:"port,omitempty"`
-	MspId         string `protobuf:"bytes,4,opt,name=msp_id,json=mspId,proto3" json:"msp_id,omitempty"`
+	Id   uint32 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Host string `protobuf:"bytes,2,opt,name=host,proto3" json:"host,omitempty"`
+	Port uint32 `protobuf:"varint,3,opt,name=port,proto3" json:"port,omitempty"`
+	// MspId msp 的 id。
+	MspId string `protobuf:"bytes,4,opt,name=msp_id,json=mspId,proto3" json:"msp_id,omitempty"`
+	// Identity x509 证书的 ASN.1 DER PEM 格式的数据。
 	Identity      []byte `protobuf:"bytes,5,opt,name=identity,proto3" json:"identity,omitempty"`
 	ClientTlsCert []byte `protobuf:"bytes,6,opt,name=client_tls_cert,json=clientTlsCert,proto3" json:"client_tls_cert,omitempty"`
 	ServerTlsCert []byte `protobuf:"bytes,7,opt,name=server_tls_cert,json=serverTlsCert,proto3" json:"server_tls_cert,omitempty"`
@@ -354,12 +356,13 @@ func (x *Consortium) GetName() string {
 	return ""
 }
 
+// 所具有的能力。
 type Capabilities struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Capabilities map[string]*Capability `protobuf:"bytes,1,rep,name=capabilities,proto3" json:"capabilities,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	Capabilities map[string]*Capability `protobuf:"bytes,1,rep,name=capabilities,proto3" json:"capabilities,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"` // 能力名字 ==> 空结构体。
 }
 
 func (x *Capabilities) Reset() {
@@ -401,6 +404,7 @@ func (x *Capabilities) GetCapabilities() map[string]*Capability {
 	return nil
 }
 
+// 是一个空的结构体。
 type Capability struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

@@ -1,10 +1,20 @@
 syntax = "proto3";
 
-option go_package = "github.com/11090815/hyperchain/protos-go/peer";
+option go_package = "github.com/11090815/hyperchain/protos-go/pbpeer";
 
-package peer;
+package pbpeer;
 
 message AnchorPeer {
     string host = 1;
     int32 port = 2;
+}
+
+// APIResource 表示 peer 中的 API 资源，其 ACL 由 policy_ref_field 字段决定。
+message APIResource {
+    string policy_ref = 1;
+}
+
+// acls 为通道中的资源提供映射。APIResource 封装了用于确定资源 ACL 的策略引用。
+message ACLs {
+    map<string, APIResource> acls = 1;
 }

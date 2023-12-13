@@ -23,7 +23,9 @@ message Consenter {
     uint32 id = 1;
     string host = 2;
     uint32 port = 3;
+    // MspId msp 的 id。
     string msp_id = 4;
+    // Identity x509 证书的 ASN.1 DER PEM 格式的数据。
     bytes identity = 5;
     bytes client_tls_cert = 6;
     bytes server_tls_cert = 7;
@@ -38,8 +40,10 @@ message Consortium {
     string name = 1;
 }
 
+// 所具有的能力。
 message Capabilities {
-    map<string, Capability> capabilities = 1;
+    map<string, Capability> capabilities = 1; // 能力名字 ==> 空结构体。
 }
 
+// 是一个空的结构体。
 message Capability {}

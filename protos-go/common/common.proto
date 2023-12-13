@@ -49,14 +49,14 @@ message Metadata {
 }
 
 message MetadataSignature {
-    bytes signature_header  = 1;
+    bytes signature_header  = 1; // proto.Marshal(*SignatureHeader)，SignatureHeader 里存储签名者的身份信息。
     bytes signature         = 2;
-    bytes identifier_header = 3; // 编码后的 IdentifierHeader。如果签名头为空，则用 ID 来标识创建者。
+    bytes identifier_header = 3; // 编码后的 IdentifierHeader。如果 SignatureHeader 为空，则用 ID 来标识创建者。
 }
 
 // 当创建者可以通过 ID 被引用时，IdentifierHeader 可以替代 SignatureHeader。
 message IdentifierHeader {
-    uint32 identifier   = 1; // 代表信息创建者的唯一标识符
+    uint32 identifier   = 1; // 代表信息创建者的唯一标识符，共识节点的编号
     bytes nonce         = 2; // 只能使用一次的任意数字。可用于检测重放攻击。
 }
 
@@ -104,9 +104,9 @@ message SignatureHeader {
 
 // 消息的有效载荷，包括消息头
 message Payload {
-    // header 包含消息生成者的身份和用于防重放的标识符
-    Header header = 1;
-    bytes data = 2;
+    // header 包含通道信息、消息生成者的身份和用于防重放的标识符
+    Header  header  = 1;
+    bytes   data    = 2;
 }
 
 message Envelope {
@@ -133,11 +133,13 @@ message BlockHeader {
 }
 
 message BlockData {
+    // Data 里的每一条数据等于 proto.Marshal(Envelope)。
     repeated bytes data = 1;
 }
 
 message BlockMetadata {
-    repeated bytes metadata = 1;
+    // Metadatas 里的每一条元数据等于 proto.Marshal(Metadata)。
+    repeated bytes metadatas = 1;
 }
 
 // OrdererBlockMetadata 定义了由排序服务设置的元数据。

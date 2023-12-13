@@ -1,9 +1,9 @@
 package gossip
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
-	"runtime/debug"
 	"time"
 
 	"github.com/11090815/hyperchain/bccsp"
@@ -58,6 +58,37 @@ func (mmcs *MSPMessageCryptoService) GetPKIidOfCert(peerIdentity api.PeerIdentit
 	return digest
 }
 
+// VerifyBlock 与 VerifyBlockAttestation 的验证逻辑很相似，只是多了一些基础的验证步骤。
+func (mmcs *MSPMessageCryptoService) VerifyBlock(channelID common.ChannelID, seqNum uint64, block *pbcommon.Block) error {
+	if block.Header == nil {
+		return fmt.Errorf("invalid block on channel [%s], block header should not be empty", channelID.String())
+	}
+
+	if seqNum != block.Header.Number {
+		return fmt.Errorf("claimed block seq number is [%d], but actual block seq number inside block is [%d]", seqNum, block.Header.Number)
+	}
+
+	retrievedChannelID, err := protoutil.GetChannelIDFromBlock(block)
+	if err != nil {
+		return err
+	}
+
+	if channelID.String() != retrievedChannelID {
+		return fmt.Errorf("invalid block's channel id, expected [%s], got [%s] in block", channelID, retrievedChannelID)
+	}
+
+	if block.Metadata == nil || len(block.Metadata.Metadatas) == 0 {
+		return fmt.Errorf("the no.%d block on channel [%s] does not have metadata", seqNum, channelID)
+	}
+
+	if !bytes.Equal(protoutil.BlockDataHash(block.Data), block.Header.DataHash) {
+		return fmt.Errorf("the block data hash in block header is [%x], but the actual block data hash is [%x]", block.Header.DataHash, protoutil.BlockDataHash(block.Data))
+	}
+
+	return mmcs.verifyHeaderAndMetadata(string(channelID), block)
+}
+
+// VerifyBlockAttestation 验证区块中元数据里签名的合法性。
 func (mmcs *MSPMessageCryptoService) VerifyBlockAttestation(channelID string, block *pbcommon.Block) error {
 	if block == nil {
 		return fmt.Errorf("invalid block on channel [%s], it should not be empty", channelID)
@@ -66,11 +97,11 @@ func (mmcs *MSPMessageCryptoService) VerifyBlockAttestation(channelID string, bl
 		return fmt.Errorf("invalid block on channel [%s], block header should not be empty", channelID)
 	}
 
-	if block.Metadata == nil || len(block.Metadata.Metadata) == 0 {
+	if block.Metadata == nil || len(block.Metadata.GetMetadatas()) == 0 {
 		return fmt.Errorf("the no.%d block on channel [%s] does not have metadata", block.Header.Number, channelID)
 	}
 
-	// return mmcs.
+	return mmcs.verifyHeaderAndMetadata(channelID, block)
 }
 
 func (mmcs *MSPMessageCryptoService) Sign(message []byte) ([]byte, error) {
@@ -115,7 +146,7 @@ func (mmcs *MSPMessageCryptoService) VerifyByChannel(channelID common.ChannelID,
 }
 
 // ValidateIdentity 如果给定的 identity 是本地 msp 管理的，则利用本地 msp 对该身份进行验证，否则
-// 遍历所有通道的 msp，检查该身份是否由这些 msp 管理的，是的话，则利用这些 msp 对身份进行验证。
+// 遍历所有通道的 msp，检查该身份是否由这些 msp 管理的，是的话，则利用对应的 msp 对身份进行验证。
 func (mmcs *MSPMessageCryptoService) ValidateIdentity(peerIdentity api.PeerIdentity) error {
 	_, _, err := mmcs.getValidatedIdentity(peerIdentity)
 	return err
@@ -129,6 +160,8 @@ func (mmcs *MSPMessageCryptoService) Expiration(peerIdentity api.PeerIdentity) (
 	}
 	return id.ExpiresAt(), nil
 }
+
+/*⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓*/
 
 func (mmcs *MSPMessageCryptoService) getValidatedIdentity(peerIdentity api.PeerIdentity) (msp.Identity, common.ChannelID, error) {
 	if len(peerIdentity) == 0 {
@@ -179,6 +212,8 @@ func (mmcs *MSPMessageCryptoService) getValidatedIdentity(peerIdentity api.PeerI
 	return nil, nil, fmt.Errorf("peer identity %s cannot be validated, no msp is able to do that", peerIdentity)
 }
 
+// verifyHeaderAndMetadata 首先根据通道 id 获取对应的通道策略管理器，然后利用该管理器获取验证区块的策略，接着获取
+// 通道配置信息，根据通道配置获取共识节点组，最后根据策略、共识节点组，验证区块中元数据部分的签名的合法性。
 func (mmcs *MSPMessageCryptoService) verifyHeaderAndMetadata(channelID string, block *pbcommon.Block) error {
 	cpm := mmcs.channelPolicyManagerGetter.Manager(channelID)
 	if cpm == nil {
@@ -188,11 +223,22 @@ func (mmcs *MSPMessageCryptoService) verifyHeaderAndMetadata(channelID string, b
 
 	policy, ok := cpm.GetPolicy(policies.BlockValidation)
 	if ok {
-		mcsLogger.Debugf("Got block validation policy for channel [%s].", channelID.String())
+		mcsLogger.Debugf("Got block validation policy for channel [%s].", channelID)
 	} else {
-		mcsLogger.Debugf("Got default block validation policy for channel [%s].", channelID.String())
+		mcsLogger.Debugf("Got default block validation policy for channel [%s].", channelID)
 	}
 
 	channelConfig := mmcs.channelConfigGetter(channelID)
-	
+	bftEnabled := channelConfig.ChannelConfig().Capabilities().ConsensusTypeBFT()
+
+	var consenters []*pbcommon.Consenter
+	if bftEnabled {
+		cfg, ok := channelConfig.OrdererConfig()
+		if !ok {
+			return fmt.Errorf("no orderer section in channel config for channel [%s]", channelID)
+		}
+		consenters = cfg.Consenters()
+	}
+
+	return protoutil.BlockSignatureVerifier(bftEnabled, consenters, policy)(block.Header, block.Metadata)
 }

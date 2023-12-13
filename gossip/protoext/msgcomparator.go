@@ -49,6 +49,10 @@ func (mc *msgComparator) invalidationPolicy(this interface{}, that interface{}) 
 	return common.MessageNoAction
 }
 
+// 对于两条反映节点状态信息 StateInfo 的消息 this 与 that，如果 this 代表的节点与 that 消息代表的节点不是同一个节点，
+// 则我们认为这两条消息之间不存在相互作用；但是如果 this 与 that 表示的是同一个节点的状态信息，并且 this 消息比 that
+// 消息更新，则我们认为 that 消息过时了，可被认为 that 消息在 this 消息面前是无效的；否则就是 this 消息在 that 消息
+// 面前无效。
 func (mc *msgComparator) stateInvalidationPolicy(thisState *pbgossip.StateInfo, thatState *pbgossip.StateInfo) common.InvalidationResult {
 	if !bytes.Equal(thisState.PkiId, thatState.PkiId) {
 		// 如果两个状态消息的身份不相同，则两个状态消息无关
@@ -58,6 +62,9 @@ func (mc *msgComparator) stateInvalidationPolicy(thisState *pbgossip.StateInfo, 
 	return compareTimestamp(thisState.Timestamp, thatState.Timestamp)
 }
 
+// 对于两条代表节点身份信息 PeerIdentity 的消息 this 与 that，如果 this 消息与 that 消息所代表的节点是同一个节点，
+// 那么 this 消息其实就与 that 消息重复了，由于节点身份信息是不变的，所以两条重复的代表节点身份的消息，只需保留一条
+// 就行，因此，我们可以认为，this 消息在 that 消息面前就是无效的。
 func (mc *msgComparator) identityInvalidationPolicy(thisIdentity *pbgossip.PeerIdentity, thatIdentity *pbgossip.PeerIdentity) common.InvalidationResult {
 	if bytes.Equal(thisIdentity.PkiId, thatIdentity.PkiId) {
 		// 两个消息的身份相同，那么此消息就是受影响的
@@ -68,6 +75,14 @@ func (mc *msgComparator) identityInvalidationPolicy(thisIdentity *pbgossip.PeerI
 	return common.MessageNoAction
 }
 
+// 对于两条包含区块信息 DataMessage 的消息 this 与 that，如果 this 与 that 中包含的区块相同，则没有必要再去处理 this 消息了，
+// 所以 this 消息在 that 消息面前就是无效的；如果 this 消息中的包含的区块比 that 消息中包含的区块老，则 this 消息就相当于过时
+// 了，也没必要去处理了，所以 this 消息在 that 消息面前就是无效的，但是存在例外情况，如果 this 消息中存储的区块没有比 that 中
+// 的区块老太多，比如，存储区能存储 10 个区块，如果 this 消息中存储的区块只比 that 中存储的区块老 3 代，例如 this 中的区块编号
+// 是 4，that 中的区块编号是 7，那么我们可以认为存储 this 消息也是可以的，毕竟存储区能存 10 个区块，所以此时，this 消息可以被
+// 认为不受 that 消息的影响。如果 this 消息中存储的区块编号大于 that 中存储的区块，并且是远大于，例如在上面举的例子里，存储区只
+// 能存储 10 个区块，但是 this 中的区块编号比 that 中的区块编号大 20，那么此时，that 消息可被认为在 this 消息面前是无效的，可以
+// 被删除掉。
 func (mc *msgComparator) dataInvalidationPolicy(thisDataMsg *pbgossip.DataMessage, thatDataMsg *pbgossip.DataMessage) common.InvalidationResult {
 	if thisDataMsg.Payload.SeqNum == thatDataMsg.Payload.SeqNum {
 		// 如果两个区块的序号相同，则此区块是受影响的
@@ -89,6 +104,9 @@ func (mc *msgComparator) dataInvalidationPolicy(thisDataMsg *pbgossip.DataMessag
 	return common.MessageInvalidated
 }
 
+// 对于两条反映节点活跃状态信息 AliveMessage 的消息 this 与 that，如果 this 与 that 代表的节点不同，则认为 this 消息与 that 消息
+// 之间不存在相互作用；由于节点的活跃状态信息是可能随着时间变化的，因此，如果 this 消息比 that 消息新，则可认为 that 消息在 this 消
+// 息面前是无效的，否则就是 this 消息在 that 消息面前是无效的。
 func aliveInvalidationPolicy(thisMsg *pbgossip.AliveMessage, thatMsg *pbgossip.AliveMessage) common.InvalidationResult {
 	if !bytes.Equal(thisMsg.Membership.PkiId, thatMsg.Membership.PkiId) {
 		return common.MessageNoAction
@@ -97,9 +115,13 @@ func aliveInvalidationPolicy(thisMsg *pbgossip.AliveMessage, thatMsg *pbgossip.A
 	return compareTimestamp(thisMsg.Timestamp, thatMsg.Timestamp)
 }
 
+// 对于两条竞选领导者的消息 LeadershipMessage，如果 this 消息中领导者的 id 与 that 消息中的领导者身份不一样，则说明这两条消息之间
+// 不会相互影响；但是如果两条消息中声明的领导者的 id 相同，那么如果 this 消息的时间戳比 that 消息的时间戳更新，那么 that 消息则会被
+// 视为无效的消息，如果 that 消息已被存储在消息存储区中，则应该被删除，用 this 消息去替代它；同样地，如果 this 消息的时间戳比 that 消
+// 息的时间戳更老，则 this 消息是无效的。
 func leaderInvalidationPolicy(thisMsg *pbgossip.LeadershipMessage, thatMsg *pbgossip.LeadershipMessage) common.InvalidationResult {
 	if !bytes.Equal(thisMsg.PkiId, thatMsg.PkiId) {
-		return common.MessageNoAction
+		return common.MessageNoAction // 两条领导者竞选消息的领导者 id 不同，则两条消息不相干
 	}
 	return compareTimestamp(thisMsg.Timestamp, thatMsg.Timestamp)
 }

@@ -20,9 +20,9 @@ message Policy {
 
 // SignaturePolicyEnvelope 封装了签名策略，并包含一个版本以备未来增强之用。
 message SignaturePolicyEnvelope {
-    int32 version = 1;
-    SignaturePolicy rule = 2;
-    repeated msp.MSPPrincipal identities = 3;
+    int32                       version     = 1;
+    SignaturePolicy             rule        = 2;
+    repeated pbmsp.MSPPrincipal identities  = 3;
 }
 
 // SignaturePolicy 是一个递归消息结构，它定义了一个轻量级 DSL，用于描述比 "exactly this signature" 更复杂的策略。 
