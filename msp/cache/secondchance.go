@@ -11,7 +11,7 @@ type secondChanceCache struct {
 	table    map[string]*cacheItem
 	items    []*cacheItem
 	position int
-	mutex    sync.RWMutex
+	mutex    *sync.RWMutex
 }
 
 type cacheItem struct {
@@ -25,6 +25,7 @@ func newSecondChanceCache(cacheSize int) *secondChanceCache {
 		position: 0,
 		items:    make([]*cacheItem, cacheSize),
 		table:    make(map[string]*cacheItem),
+		mutex:    &sync.RWMutex{},
 	}
 }
 

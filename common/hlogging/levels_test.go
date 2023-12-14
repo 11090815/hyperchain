@@ -1,9 +1,9 @@
-package hlogging_test
+package hlogging
 
 import (
+	"sync"
 	"testing"
 
-	"github.com/11090815/hyperchain/common/hlogging"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 )
@@ -50,7 +50,7 @@ func TestLoggerLevelsActivateSpec(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		ll := &hlogging.LoggerLevels{}
+		ll := &LoggerLevels{mutex: &sync.RWMutex{}}
 
 		err := ll.ActivateSpec(test.spec)
 		require.NoError(t, err)

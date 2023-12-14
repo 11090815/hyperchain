@@ -29,7 +29,7 @@ type Config struct {
 
 type Logging struct {
 	*LoggerLevels
-	mutex          sync.RWMutex
+	mutex          *sync.RWMutex
 	encoding       Encoding
 	encoderConfig  zapcore.EncoderConfig
 	multiFormatter *enc.MultiFormatter
@@ -42,7 +42,9 @@ func NewLogging(c Config) (*Logging, error) {
 	encoderConfig.NameKey = "name"
 
 	l := &Logging{
+		mutex: &sync.RWMutex{},
 		LoggerLevels: &LoggerLevels{
+			mutex:        &sync.RWMutex{},
 			defaultLevel: defaultLevel,
 		},
 		encoderConfig:  encoderConfig,

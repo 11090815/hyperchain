@@ -45,7 +45,7 @@ type messageStoreImpl struct {
 	msgTTL            time.Duration                // 消息的生存时间
 	doneCh            chan struct{}
 	stopOnce          sync.Once
-	mutex             sync.RWMutex
+	mutex             *sync.RWMutex
 }
 
 type msg struct {
@@ -91,6 +91,7 @@ func newMsgStoreImpl(policy common.MessageReplacingPolicy, trigger invalidationT
 		expiredCount:      0,
 
 		doneCh: make(chan struct{}),
+		mutex:  &sync.RWMutex{},
 	}
 }
 

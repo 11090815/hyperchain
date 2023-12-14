@@ -76,12 +76,13 @@ func NewFormatter(verb, option string) (Formatter, error) {
 /*** 🐋 ***/
 
 type MultiFormatter struct {
-	mutex      sync.RWMutex
+	mutex      *sync.RWMutex
 	formatters []Formatter
 }
 
 func NewMultiFormatter(formatters ...Formatter) *MultiFormatter {
 	return &MultiFormatter{
+		mutex: &sync.RWMutex{},
 		formatters: formatters,
 	}
 }

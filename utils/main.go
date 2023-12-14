@@ -41,6 +41,9 @@ func GetAllFile(pathname string, s []string) ([]string, error) {
 				return s, err
 			}
 		} else {
+			if strings.LastIndex(fi.Name(), ".json") != -1 {
+				continue
+			}
 			fullName := pathname + "/" + fi.Name()
 			s = append(s, fullName)
 		}
@@ -113,10 +116,10 @@ func SearchTextInFile(filePath string, text string, caseSensitive bool) (*Result
 
 func main() {
 	var s []string
-	s, _ = GetAllFile("/home/iris/research/code/go/src/github.com/hyperledger/fabric-3.0.0-preview", s)
+	s, _ = GetAllFile("/home/iris/research/code/go/src/github.com/11090815/hyperchain", s)
 	view := &View{}
 	for _, filePath := range s {
-		res, err := SearchTextInFile(filePath, "MSPVersion", true)
+		res, err := SearchTextInFile(filePath, "sync.RWMutex", true)
 		if err != nil {
 			panic(err)
 		}

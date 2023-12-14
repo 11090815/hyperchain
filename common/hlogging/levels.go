@@ -16,7 +16,7 @@ const DisabledLevel = zapcore.Level(math.MinInt8)
 var loggerNameRegexp = regexp.MustCompile(`^[[:alnum:]_#:-]+(\.[[:alnum:]_#:-]+)*$`)
 
 type LoggerLevels struct {
-	mutex        sync.RWMutex
+	mutex        *sync.RWMutex
 	levelCache   map[string]zapcore.Level // loggerName => zapcore.Level，loggerName 的格式应当是 xxx.xxx.xxx
 	specs        map[string]zapcore.Level
 	defaultLevel zapcore.Level
