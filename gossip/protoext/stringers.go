@@ -55,7 +55,7 @@ func MembershipRequestToString(mr *pbgossip.MembershipRequest) string {
 	if mr.SelfInformation == nil {
 		return ""
 	}
-	sgm, err := EnvelopeToGossipMessage(mr.SelfInformation)
+	sgm, err := EnvelopeToSignedGossipMessage(mr.SelfInformation)
 	if err != nil {
 		return ""
 	}

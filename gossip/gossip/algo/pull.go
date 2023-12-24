@@ -47,7 +47,7 @@ const (
 		最后遍历到 4，它仅由 p2 发送，因此，启动者更新 req2{[3, 4], p2}。启动者分别将 req1 和 req2 发送给 p1 和 p2，并进入等待 response 消息的超时时间内，一旦超时时间一过，则启动者会
 		结束本次 pull 进程。
 
-		收到 request 消息的 peer 节点，会解析 request 消息，得到其中的 digests，然后逐一提取其中的 digest，并判断本地状态机中是否有存储该 digest，其次还会根据 摘要过滤器 DigestFilter
+		收到 request 消息的 peer 节点，会解析 request 消息，得到其中的 digests，然后逐一提取其中的 digest，并判断本地状态机中是否有存储该 digest，其次还会根据摘要过滤器 DigestFilter
 		判断此 digest 能不能发送给启动者，如果本地状态机存有该 digest 且过滤器判断结果是可以发送，那么 peer 节点就会构造 response 消息，将能发送的 digest（item）发送给启动者。
 
 		收到 response 消息的启动者，会将 response 消息中的 items 存储到本地状态机中。

@@ -23,6 +23,16 @@ func RandomIntn(n int) int {
 	return r.Intn(n)
 }
 
+// GetRandomIndices 将 [0,highestIndex] 区间内的所有数字打乱，然后取前
+// indiceCount 个数字返回。
+func GetRandomIndices(indiceCount, highestIndex int) []int {
+	if highestIndex+1 < indiceCount {
+		return nil
+	}
+
+	return r.Perm(highestIndex + 1)[:indiceCount]
+}
+
 /*⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓*/
 
 type Set struct {
@@ -93,4 +103,13 @@ func IndexInSlice(array interface{}, o interface{}, equals Equals) int {
 		}
 	}
 	return -1
+}
+
+func Contains(s string, arr []string) bool {
+	for _, item := range arr {
+		if s == item {
+			return true
+		}
+	}
+	return false
 }

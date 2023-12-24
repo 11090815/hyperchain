@@ -11,7 +11,7 @@ import (
 type invalidationTrigger func(message interface{})
 
 type MessageStore interface {
-	// 返回的布尔值表示消息存储是否成功。
+	// 返回的布尔值表示消息存储是否成功，msg 的类型一般是 *protoext.SignedGossipMessage。
 	Add(msg interface{}) bool
 
 	// 返回的布尔值表示消息是否合法，是否能被存储，实际上就是将给定的消息与存储区里的每个
@@ -19,6 +19,8 @@ type MessageStore interface {
 	// 法的，例如给定的消息是反映节点状态的消息，由于节点状态会随着时间而变化，所以如果给
 	// 定的消息比存储区中某个消息旧，说明给定的消息已经过时了，不足以反映节点的当前状态，
 	// 那么此时给定的消息就是无效的，或者说是不合法的，不适合再存储到存储区里了。
+	//
+	// 传入的 interface{} 是 *protoext.SignedGossipMessage。
 	CheckValid(msg interface{}) bool
 
 	// 返回当前消息存储区中存储的消息条数（去除掉已过期的消息）。
@@ -147,6 +149,7 @@ func (msi *messageStoreImpl) CheckValid(message interface{}) bool {
 	return true
 }
 
+// Size 返回存储的未过期的消息数量。
 func (msi *messageStoreImpl) Size() int {
 	msi.mutex.RLock()
 	defer msi.mutex.RUnlock()
@@ -175,7 +178,7 @@ func (msi *messageStoreImpl) Stop() {
 }
 
 func (msi *messageStoreImpl) expireMessages() {
-	msi.externalLock() // TODO 为什么在让消息过期的时候，要让外部某个进程暂停
+	msi.externalLock() // 让消息过期的时候，外部某个进程可能正在读取消息，所以需要上锁，避免冲突
 	msi.mutex.Lock()
 	defer msi.mutex.Unlock()
 	defer msi.externalUnlock()

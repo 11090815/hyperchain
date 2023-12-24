@@ -159,7 +159,17 @@ func SignSecret(envelope *pbgossip.Envelope, signer SignerFunc, secret *pbgossip
 	return nil
 }
 
-// NoopSign 在 Envelope 里填充消息 payload，但不会计算消息签名。
+// NoopSign 构建 SignedGossipMessage 结构体：
+//
+//	type SignedGossipMessage struct {
+//		Envelope      *pbgossip.Envelope
+//		GossipMessage *pbgossip.GossipMessage
+//	}
+//
+// 所构建的结构体中，GossipMessage 就是 NoopSign 函数给定的 GossipMessage 参数，原封不动；
+// 而 Envelope 则是通过实例化得来的，Envelope 结构体中定义了三个字段：Payload、Signature、SecretEnvelope，
+// NoopSign 函数只会计算其中的 Payload 字段的值，即 proto.Marshal(给定的 GossipMessage)，对于 Signature 和
+// SecretEnvelope 两个字段，则直接将其设置为空。
 func NoopSign(gm *pbgossip.GossipMessage) (*SignedGossipMessage, error) {
 	sgm := &SignedGossipMessage{
 		GossipMessage: gm,
@@ -173,8 +183,8 @@ func NoopSign(gm *pbgossip.GossipMessage) (*SignedGossipMessage, error) {
 	return sgm, nil
 }
 
-// EnvelopeToGossipMessage Envelope.Payload 存储的是基于 GossipMessage 的 protobuf 编码数据，对其进行反序列化即可获得 GossipMessage。
-func EnvelopeToGossipMessage(envelope *pbgossip.Envelope) (*SignedGossipMessage, error) {
+// EnvelopeToSignedGossipMessage Envelope.Payload 存储的是基于 GossipMessage 的 protobuf 编码数据，对其进行反序列化即可获得 GossipMessage。
+func EnvelopeToSignedGossipMessage(envelope *pbgossip.Envelope) (*SignedGossipMessage, error) {
 	if envelope == nil {
 		return nil, errors.New("nil envelope")
 	}

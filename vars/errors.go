@@ -3,7 +3,52 @@ package vars
 import (
 	"fmt"
 	"reflect"
+	"runtime"
+	"strings"
 )
+
+const PrefixPath = "github.com/11090815/"
+
+type PathError struct {
+	err  string
+	path string
+}
+
+func (pe PathError) Error() string {
+	return fmt.Sprintf("[%s] => {%s}", pe.path, pe.err)
+}
+
+func NewPathError(err string) PathError {
+	pc, file, line, ok := runtime.Caller(1)
+	if !ok {
+		return PathError{
+			err:  err,
+			path: "unknown path",
+		}
+	}
+
+	index := strings.Index(file, PrefixPath)
+	if index == -1 {
+		file = "unknown file"
+	} else {
+		file = file[index+len(PrefixPath):]
+	}
+	
+	funcName := runtime.FuncForPC(pc).Name()
+	index = strings.LastIndex(funcName, ".")
+	if index == -1 {
+		funcName = "unknown function"
+	} else {
+		funcName = funcName[index+1:]
+	}
+	
+	return PathError{
+		err:  err,
+		path: fmt.Sprintf("\"%s\" \"%s\" #%d", file, funcName, line),
+	}
+}
+
+/*⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓*/
 
 type ErrorDecodePEMFormatCertificate struct {
 	BlockIsNil    bool

@@ -8,6 +8,10 @@ import "encoding/hex"
 //  3. 将第二步得到的值作为 PKIid。
 type PKIid []byte
 
+func (id PKIid) String() string {
+	return hex.EncodeToString(id)
+}
+
 // MessageReplacingPolicy 返回：
 // MESSAGE_INVALIDATES（如果该消息使那条消息无效）；
 // MESSAGE_INVALIDATED（如果此消息被那条该消息搞得无效）；

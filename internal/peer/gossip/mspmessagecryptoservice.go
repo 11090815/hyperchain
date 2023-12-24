@@ -16,6 +16,7 @@ import (
 	"github.com/11090815/hyperchain/msp"
 	pbcommon "github.com/11090815/hyperchain/protos-go/common"
 	"github.com/11090815/hyperchain/protoutil"
+	"github.com/11090815/hyperchain/vars"
 )
 
 var mcsLogger = hlogging.MustGetLogger("peer.gossip.msp_message_crypto_service")
@@ -74,7 +75,7 @@ func (mmcs *MSPMessageCryptoService) VerifyBlock(channelID common.ChannelID, seq
 	}
 
 	if channelID.String() != retrievedChannelID {
-		return fmt.Errorf("invalid block's channel id, expected [%s], got [%s] in block", channelID, retrievedChannelID)
+		return vars.NewPathError(fmt.Sprintf("invalid block's channel id, expected [%s], got [%s] in block", channelID, retrievedChannelID))
 	}
 
 	if block.Metadata == nil || len(block.Metadata.Metadatas) == 0 {
@@ -91,14 +92,14 @@ func (mmcs *MSPMessageCryptoService) VerifyBlock(channelID common.ChannelID, seq
 // VerifyBlockAttestation 验证区块中元数据里签名的合法性。
 func (mmcs *MSPMessageCryptoService) VerifyBlockAttestation(channelID string, block *pbcommon.Block) error {
 	if block == nil {
-		return fmt.Errorf("invalid block on channel [%s], it should not be empty", channelID)
+		return vars.NewPathError(fmt.Sprintf("invalid block on channel [%s], it should not be empty", channelID))
 	}
 	if block.Header == nil {
-		return fmt.Errorf("invalid block on channel [%s], block header should not be empty", channelID)
+		return vars.NewPathError(fmt.Sprintf("invalid block on channel [%s], block header should not be empty", channelID))
 	}
 
 	if block.Metadata == nil || len(block.Metadata.GetMetadatas()) == 0 {
-		return fmt.Errorf("the no.%d block on channel [%s] does not have metadata", block.Header.Number, channelID)
+		return vars.NewPathError(fmt.Sprintf("the no.%d block on channel [%s] does not have metadata", block.Header.Number, channelID))
 	}
 
 	return mmcs.verifyHeaderAndMetadata(channelID, block)
@@ -125,12 +126,12 @@ func (mmcs *MSPMessageCryptoService) Verify(peerIdentity api.PeerIdentity, signa
 
 func (mmcs *MSPMessageCryptoService) VerifyByChannel(channelID common.ChannelID, peerIdentity api.PeerIdentity, signature, message []byte) error {
 	if len(peerIdentity) == 0 {
-		return errors.New("invalid peer identity, it must be not empty")
+		return vars.NewPathError("invalid peer identity, it must be not empty")
 	}
 
 	cpm := mmcs.channelPolicyManagerGetter.Manager(channelID.String())
 	if cpm == nil {
-		return fmt.Errorf("could not get policy manager for channel [%s]", channelID.String())
+		return vars.NewPathError(fmt.Sprintf("could not get policy manager for channel [%s]", channelID.String()))
 	}
 
 	mcsLogger.Debugf("Got policy manager for channel [%s].", channelID.String())
@@ -152,7 +153,7 @@ func (mmcs *MSPMessageCryptoService) ValidateIdentity(peerIdentity api.PeerIdent
 	return err
 }
 
-// Expiration 返回身份的过期时间。
+// Expiration 返回身份证书的过期时间。
 func (mmcs *MSPMessageCryptoService) Expiration(peerIdentity api.PeerIdentity) (time.Time, error) {
 	id, _, err := mmcs.getValidatedIdentity(peerIdentity)
 	if err != nil {

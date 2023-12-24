@@ -14,7 +14,7 @@ type ReceivedMessage interface {
 	// Respond 给发送消息的节点回复消息。
 	Respond(msg *pbgossip.GossipMessage)
 
-	GetGossipMessage() *SignedGossipMessage
+	GetSignedGossipMessage() *SignedGossipMessage
 
 	GetSourceEnvelope() *pbgossip.Envelope
 

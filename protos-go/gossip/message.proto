@@ -12,17 +12,17 @@ message Envelope {
     SecretEnvelope  secret_envelope = 3;
 }
 
+// SecretEnvelope 的 Payload 字段存储着节点的 InternalEndpoint。
 message SecretEnvelope {
     // Payload: proto.Marshal(*Secret)
     bytes payload = 1;
     bytes signature = 2;
 }
 
-// Secret 是一个实体，当接收 Envelope 的远程对等方不应该知道秘密的内容时，可能会从 Envelope 中省略。
+// Secret 是一个实体，里面存储着节点在内部网络中的地址，当接收 Envelope 的远程对等
+// 方不应该知道秘密的内容时，可能会从 Envelope 中省略。
 message Secret {
-    oneof content {
-        string internal_endpoint = 1;
-    }
+    string internal_endpoint = 1;
 }
 
 message GossipMessage {
@@ -111,8 +111,9 @@ message MembershipRequest {
 
 // MembershipResponse 用来回复 MembershipRequest。
 message MembershipResponse {
-    repeated Envelope alive = 1;
-    repeated Envelope dead = 2;
+    repeated Envelope   alive   = 1;
+    repeated Envelope   dead    = 2;
+    bytes               pki_id  = 3;
 }
 
 // DataMessage 是一个包含区块的消息。
@@ -271,7 +272,12 @@ enum PullMsgType {
 
 // PeerTime 定义了 peer 生命的逻辑时间。
 message PeerTime {
+    // IncNum 字段代表 peer 节点的增量编号，用于标识 peer 在其生命周期内的不同阶段或状态。
+    // 每当 peer 经历了关键事件或状态变化时，增量编号会递增。它可以用来区分 peer 节点在不
+    // 同时间点的状态。
     uint64 inc_num = 1;
+    // SeqNum 字段代表 peer 节点的序列编号，用于标识 peer 在整个网络中的顺序。每个 peer 
+    // 节点在加入网络时被分配一个唯一的序列编号。它可以用来确定 peer 节点在网络中的位置和顺序。
     uint64 seq_num = 2;
 }
 
