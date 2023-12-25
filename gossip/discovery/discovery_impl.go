@@ -55,7 +55,8 @@ func newAliveMsgStore(impl *gossipDiscoveryImpl) *aliveMsgStore {
 		endpoint := membership.Endpoint
 		internalEndpoint := protoext.InternalEndpoint(signedGossipMessage.Envelope.SecretEnvelope)
 
-		if util.Contains(endpoint, impl.config.BootstrapPeers) || util.Contains(internalEndpoint, impl.config.BootstrapPeers) || impl.anchorPeerTracker.IsAnchorPeer(endpoint) || impl.anchorPeerTracker.IsAnchorPeer(internalEndpoint) {
+		if util.Contains(endpoint, impl.config.BootstrapPeers) || util.Contains(internalEndpoint, impl.config.BootstrapPeers) ||
+			impl.anchorPeerTracker.IsAnchorPeer(endpoint) || impl.anchorPeerTracker.IsAnchorPeer(internalEndpoint) {
 			// 锚点 peer 不能删除
 			impl.logger.Debugf("Don't remove bootstrap or anchor peer endpoint %s from membership.", endpoint)
 			return
