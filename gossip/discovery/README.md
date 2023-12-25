@@ -96,3 +96,74 @@ signedAliveMsg := &SignedGossipMessage{
 上述代码告诉了我们哪些 `Membership` 的消息能传给请求者，哪些不能。
 
 3. 如果 `Discovery` 收到的是 `MembershipResponse` 消息，则会处理其中的 `alive` 和 `dead` 成员信息。
+
+## 3. 构造MembershipRequest消息的过程
+
+1. > func (impl *gossipDiscoveryImpl) createMembershipRequest(includeInternalEndpoint bool) (*pbgossip.GossipMessage, error)
+
+    `createMembershipRequest` 方法调用 `getMySignedAliveMessage` 方法获取经过签名的 `SignedGossipMessage`，然后通过以下代码，去构造带有 `GossipMessage_MemReq` 消息的 `GossipMessage`：
+
+    ```go
+    request := &GossipMessage{
+        Tag: GossipMessage_EMPTY,
+        Nonce: RandomUint64(),
+        Content: &GossipMessage_MemReq{
+            MemReq: &MembershipRequest{
+                SelfInformation: signedGossipMessage.Envelope,
+            },
+        }
+    }
+    ```
+
+2. > func (impl *gossipDiscoveryImpl) getMySignedAliveMessage(includeInternalEndpoint bool) (*protoext.SignedGossipMessage, error)
+
+    `getMySignedAliveMessage` 方法调用 `aliveMsgAndInternalEndpoint` 方法获取经过组装的 `GossipMessage` 和自身的 `InternalEndpoint`。
+
+    `getMySignedAliveMessage` 调用 `CryptoService` 密码服务接口，使用 `SignMessage` 方法对 `GossipMessage` 进行签名，**目前，如何对其进行签名，还不太清楚，可以猜一下：**首先利用 `protobuf` 对 `GossipMessage` 消息进行序列化，得到字节切片 `payload`，然后利用签名算法 `signer` 对 `payload` 进行签名，得到 `signature`，紧接着就是构造 `Envelope`：
+
+    ```go
+    envelope := &Envelope{
+        Payload: payload,
+        Signature: signature,
+    }
+    ```
+
+    然后再构造 `SignedGossipMessage` 消息结构：
+
+    ```go
+    signedGossipMessage := &SignedGossipMessage{
+        GossipMessage: gossipMessage,
+        Envelope: envelope,
+    }
+    ```
+
+    **上面的签名过程，我们没有讲解 `Envelope` 消息结构内的 `SecretEnvelope` 字段如何生成，但是盲猜一下，应该是在生成签名的过程中生成的。**
+
+    最后，如果 `includeInternalEndpoint` 的值等于 `false`，则需要将 `signedGossipMessage.Envelope.SecretEnvelope` 设置为 `nil`。
+
+    最后的最后，`getMySignedAliveMessage` 方法将生成的 `signedGossipMessage` 消息返回到上层方法 `createMembershipRequest`，所以此时，我们可以回到第 `1` 步去观察 `createMembershipRequest` 方法如何基于返回的 `SignedGossipMessage` 构造 `GossipMessage_MemReq`。
+
+3. > func (impl *gossipDiscoveryImpl) aliveMsgAndInternalEndpoint() (*pbgossip.GossipMessage, string)
+
+    `aliveMsgAndInternalEndpoint` 方法通过以下过程组装 `GossipMessage`，`GossipMessage` 内存放的实际内容为 `GossipMessage_AliveMsg`。
+
+    ```go
+    gossipMessage := &GossipMessage{
+        Tag: GossipMessage_EMPTY,
+        Content: &GossipMessage_AliveMsg{ //实际消息
+            AliveMsg: &AliveMessage{
+                Membership: &Member{
+                    Endpoint: impl.self.ExternalEndpoint,
+                    Metadata: impl.self.Metadata,
+                    PkiId: impl.self.PKIid,
+                },
+                Timestamp: &PeerTime{
+                    IncNum: impl.incTime,
+                    SeqNum: impl.seqNum,
+                },
+            }
+        }
+    }
+    ```
+
+    方法返回的 `InternalEndpoint` 则是 `impl.self.InternalEndpoint`。对于方法所构造的 `GossipMessage`，不做任何处理，直接返回到上层方法 `getMySignedAliveMessage`，所以此时，我们可以回到第 `2` 步去观察 `getMySignedAliveMessage` 方法如何基于返回的 `GossipMessage` 构造 `SignedGossipMessage`。

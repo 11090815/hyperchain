@@ -7,6 +7,10 @@
 package pbgossip
 
 import (
+	context "context"
+	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -2701,7 +2705,14 @@ var file_message_proto_rawDesc = []byte{
 	0x73, 0x67, 0x54, 0x79, 0x70, 0x65, 0x12, 0x0d, 0x0a, 0x09, 0x55, 0x4e, 0x44, 0x45, 0x46, 0x49,
 	0x4e, 0x45, 0x44, 0x10, 0x00, 0x12, 0x0d, 0x0a, 0x09, 0x42, 0x4c, 0x4f, 0x43, 0x4b, 0x5f, 0x4d,
 	0x53, 0x47, 0x10, 0x01, 0x12, 0x10, 0x0a, 0x0c, 0x49, 0x44, 0x45, 0x4e, 0x54, 0x49, 0x54, 0x59,
-	0x5f, 0x4d, 0x53, 0x47, 0x10, 0x02, 0x42, 0x33, 0x5a, 0x31, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62,
+	0x5f, 0x4d, 0x53, 0x47, 0x10, 0x02, 0x32, 0x6e, 0x0a, 0x06, 0x47, 0x6f, 0x73, 0x73, 0x69, 0x70,
+	0x12, 0x3a, 0x0a, 0x0c, 0x47, 0x6f, 0x73, 0x73, 0x69, 0x70, 0x53, 0x74, 0x72, 0x65, 0x61, 0x6d,
+	0x12, 0x12, 0x2e, 0x70, 0x62, 0x67, 0x6f, 0x73, 0x73, 0x69, 0x70, 0x2e, 0x45, 0x6e, 0x76, 0x65,
+	0x6c, 0x6f, 0x70, 0x65, 0x1a, 0x12, 0x2e, 0x70, 0x62, 0x67, 0x6f, 0x73, 0x73, 0x69, 0x70, 0x2e,
+	0x45, 0x6e, 0x76, 0x65, 0x6c, 0x6f, 0x70, 0x65, 0x28, 0x01, 0x30, 0x01, 0x12, 0x28, 0x0a, 0x04,
+	0x50, 0x69, 0x6e, 0x67, 0x12, 0x0f, 0x2e, 0x70, 0x62, 0x67, 0x6f, 0x73, 0x73, 0x69, 0x70, 0x2e,
+	0x45, 0x6d, 0x70, 0x74, 0x79, 0x1a, 0x0f, 0x2e, 0x70, 0x62, 0x67, 0x6f, 0x73, 0x73, 0x69, 0x70,
+	0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x42, 0x33, 0x5a, 0x31, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62,
 	0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x31, 0x31, 0x30, 0x39, 0x30, 0x38, 0x31, 0x35, 0x2f, 0x68, 0x79,
 	0x70, 0x65, 0x72, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x73, 0x2d,
 	0x67, 0x6f, 0x2f, 0x70, 0x62, 0x67, 0x6f, 0x73, 0x73, 0x69, 0x70, 0x62, 0x06, 0x70, 0x72, 0x6f,
@@ -2804,8 +2815,12 @@ var file_message_proto_depIdxs = []int32{
 	30, // 41: pbgossip.RemotePvtDataResponse.elements:type_name -> pbgossip.PvtDataElement
 	28, // 42: pbgossip.PvtDataElement.digest:type_name -> pbgossip.PvtDataDigest
 	32, // 43: pbgossip.PrivateDataMessage.payload:type_name -> pbgossip.PrivatePayload
-	44, // [44:44] is the sub-list for method output_type
-	44, // [44:44] is the sub-list for method input_type
+	2,  // 44: pbgossip.Gossip.GossipStream:input_type -> pbgossip.Envelope
+	14, // 45: pbgossip.Gossip.Ping:input_type -> pbgossip.Empty
+	2,  // 46: pbgossip.Gossip.GossipStream:output_type -> pbgossip.Envelope
+	14, // 47: pbgossip.Gossip.Ping:output_type -> pbgossip.Empty
+	46, // [46:48] is the sub-list for method output_type
+	44, // [44:46] is the sub-list for method input_type
 	44, // [44:44] is the sub-list for extension type_name
 	44, // [44:44] is the sub-list for extension extendee
 	0,  // [0:44] is the sub-list for field type_name
@@ -3245,7 +3260,7 @@ func file_message_proto_init() {
 			NumEnums:      2,
 			NumMessages:   33,
 			NumExtensions: 0,
-			NumServices:   0,
+			NumServices:   1,
 		},
 		GoTypes:           file_message_proto_goTypes,
 		DependencyIndexes: file_message_proto_depIdxs,
@@ -3256,4 +3271,153 @@ func file_message_proto_init() {
 	file_message_proto_rawDesc = nil
 	file_message_proto_goTypes = nil
 	file_message_proto_depIdxs = nil
+}
+
+// Reference imports to suppress errors if they are not otherwise used.
+var _ context.Context
+var _ grpc.ClientConnInterface
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the grpc package it is being compiled against.
+const _ = grpc.SupportPackageIsVersion6
+
+// GossipClient is the client API for Gossip service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
+type GossipClient interface {
+	GossipStream(ctx context.Context, opts ...grpc.CallOption) (Gossip_GossipStreamClient, error)
+	Ping(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Empty, error)
+}
+
+type gossipClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewGossipClient(cc grpc.ClientConnInterface) GossipClient {
+	return &gossipClient{cc}
+}
+
+func (c *gossipClient) GossipStream(ctx context.Context, opts ...grpc.CallOption) (Gossip_GossipStreamClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_Gossip_serviceDesc.Streams[0], "/pbgossip.Gossip/GossipStream", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &gossipGossipStreamClient{stream}
+	return x, nil
+}
+
+type Gossip_GossipStreamClient interface {
+	Send(*Envelope) error
+	Recv() (*Envelope, error)
+	grpc.ClientStream
+}
+
+type gossipGossipStreamClient struct {
+	grpc.ClientStream
+}
+
+func (x *gossipGossipStreamClient) Send(m *Envelope) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *gossipGossipStreamClient) Recv() (*Envelope, error) {
+	m := new(Envelope)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *gossipClient) Ping(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Empty, error) {
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, "/pbgossip.Gossip/Ping", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// GossipServer is the server API for Gossip service.
+type GossipServer interface {
+	GossipStream(Gossip_GossipStreamServer) error
+	Ping(context.Context, *Empty) (*Empty, error)
+}
+
+// UnimplementedGossipServer can be embedded to have forward compatible implementations.
+type UnimplementedGossipServer struct {
+}
+
+func (*UnimplementedGossipServer) GossipStream(Gossip_GossipStreamServer) error {
+	return status.Errorf(codes.Unimplemented, "method GossipStream not implemented")
+}
+func (*UnimplementedGossipServer) Ping(context.Context, *Empty) (*Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Ping not implemented")
+}
+
+func RegisterGossipServer(s *grpc.Server, srv GossipServer) {
+	s.RegisterService(&_Gossip_serviceDesc, srv)
+}
+
+func _Gossip_GossipStream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(GossipServer).GossipStream(&gossipGossipStreamServer{stream})
+}
+
+type Gossip_GossipStreamServer interface {
+	Send(*Envelope) error
+	Recv() (*Envelope, error)
+	grpc.ServerStream
+}
+
+type gossipGossipStreamServer struct {
+	grpc.ServerStream
+}
+
+func (x *gossipGossipStreamServer) Send(m *Envelope) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *gossipGossipStreamServer) Recv() (*Envelope, error) {
+	m := new(Envelope)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func _Gossip_Ping_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GossipServer).Ping(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pbgossip.Gossip/Ping",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GossipServer).Ping(ctx, req.(*Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+var _Gossip_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "pbgossip.Gossip",
+	HandlerType: (*GossipServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Ping",
+			Handler:    _Gossip_Ping_Handler,
+		},
+	},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "GossipStream",
+			Handler:       _Gossip_GossipStream_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+	},
+	Metadata: "message.proto",
 }

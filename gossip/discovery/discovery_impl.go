@@ -34,6 +34,13 @@ type timestamp struct {
 	lastSeen time.Time
 }
 
+func (ts *timestamp) String() string {
+	if !ts.lastSeen.IsZero() {
+		return fmt.Sprintf("timestamp{incTime: %s, seqNum: %d, lastSeen: %s}", ts.incTime.Format(time.RFC3339), ts.seqNum, ts.lastSeen.Format(time.RFC3339))
+	}
+	return fmt.Sprintf("timestamp{incTime: %s, seqNum: %d}", ts.incTime.Format(time.RFC3339), ts.seqNum)
+}
+
 type aliveMsgStore struct {
 	msgstore.MessageStore
 }
@@ -288,7 +295,7 @@ func (impl *gossipDiscoveryImpl) Connect(member NetworkMember, id identifier) {
 			peer := &NetworkMember{
 				InternalEndpoint: member.InternalEndpoint,
 				ExternalEndpoint: member.ExternalEndpoint,
-				PKIid:            id.ID,
+				PKIid:            id.PKIid,
 			}
 
 			req, err := impl.createMembershipRequest(id.SelfOrg)
@@ -298,8 +305,7 @@ func (impl *gossipDiscoveryImpl) Connect(member NetworkMember, id identifier) {
 			}
 
 			signedReq, _ := protoext.NoopSign(req)
-			signedReq.GossipMessage.Nonce = util.RandomUint64()
-			signedReq, _ = protoext.NoopSign(signedReq.GossipMessage)
+
 			go impl.sendUntilAcked(peer, signedReq)
 			return
 		}
@@ -592,8 +598,6 @@ func (impl *gossipDiscoveryImpl) updateAliveMember(aliveMember *protoext.SignedG
 	impl.id2Member[pkiIDStr].Metadata = aliveMsg.Membership.Metadata
 	impl.id2Member[pkiIDStr].InternalEndpoint = internalEndpoint
 
-	impl.logger.Debugf("Updating alive member data: %s.", protoext.AliveMessageToString(aliveMsg))
-
 	impl.aliveLastTS[pkiIDStr].incTime = tsToTime(aliveMsg.Timestamp.IncNum)
 	impl.aliveLastTS[pkiIDStr].seqNum = aliveMsg.Timestamp.SeqNum
 	impl.aliveLastTS[pkiIDStr].lastSeen = time.Now()
@@ -603,7 +607,7 @@ func (impl *gossipDiscoveryImpl) updateAliveMember(aliveMember *protoext.SignedG
 		impl.logger.Debugf("Putting alive membership in map for node %s: %v.", pkiIDStr, *aliveMember)
 		impl.aliveMembership.Put(aliveMsg.Membership.PkiId, &protoext.SignedGossipMessage{GossipMessage: aliveMember.GossipMessage, Envelope: aliveMember.Envelope})
 	} else {
-		impl.logger.Debugf("Updating alive membership for node %s: %v.", pkiIDStr, *aliveMember)
+		impl.logger.Debugf("Updating alive membership for node %s: %v.", pkiIDStr, protoext.AliveMessageToString(aliveMsg))
 		aliveMembership.GossipMessage = aliveMember.GossipMessage
 		aliveMembership.Envelope = aliveMember.Envelope
 	}
@@ -669,6 +673,7 @@ func (impl *gossipDiscoveryImpl) handleAliveMessage(signedMsg *protoext.SignedGo
 
 	if !knownNetworkMember {
 		// 本地没有存储过该节点
+		impl.logger.Debugf("Meeting a new node %s.", pkiIDStr)
 		impl.learnNewMembers([]*protoext.SignedGossipMessage{signedMsg}, []*protoext.SignedGossipMessage{})
 		return
 	}
@@ -767,7 +772,7 @@ func (impl *gossipDiscoveryImpl) handleMessage(receivedMsg protoext.ReceivedMess
 
 	signedGossipMessage := receivedMsg.GetSignedGossipMessage()
 	if signedGossipMessage.GossipMessage.GetAliveMsg() == nil && signedGossipMessage.GossipMessage.GetMemReq() == nil && signedGossipMessage.GossipMessage.GetMemRes() == nil {
-		impl.logger.Warnf("Discovery can only handle Alive or MembershipRequest or MembershipResponse, but got %T.", signedGossipMessage.GossipMessage.Content)
+		impl.logger.Warnf("Discovery can only handle alive message or membership request or membership response, but got %T.", signedGossipMessage.GossipMessage.Content)
 		return
 	}
 
@@ -791,7 +796,7 @@ func (impl *gossipDiscoveryImpl) handleMessage(receivedMsg protoext.ReceivedMess
 		// 将其他节点发送来的 alive 消息存储到消息存储库里。
 		impl.aliveMsgStore.Add(signedGossipMessage)
 		impl.handleAliveMessage(signedGossipMessage)
-		impl.commService.Forward(*signedGossipMessage)
+		impl.commService.Forward(receivedMsg)
 		return
 	case signedGossipMessage.GossipMessage.GetMemRes() != nil:
 		memRes := signedGossipMessage.GossipMessage.GetMemRes()

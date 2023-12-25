@@ -71,7 +71,7 @@ type CommService interface {
 	CloseConn(peer *NetworkMember)
 
 	// Forwar 将报文转发至下一跳，但不会将报文转发给最初接收报文的那一跳。
-	Forward(msg protoext.SignedGossipMessage)
+	Forward(msg protoext.ReceivedMessage)
 
 	// IdentitySwitch 返回一个 read-only 通道，其中存储着那些身份改变的 peer。
 	IdentitySwitch() <-chan common.PKIid
@@ -189,8 +189,8 @@ func (members Members) Map(f func(NetworkMember) NetworkMember) Members {
 // PeerIdentification 结构体定义了对方 peer 节点的 PKI-ID，并且它其中的
 // SelfOrg 字段揭示了该 peer 节点是否与自己在同一组织内。
 type PeerIdentification struct {
-	ID      common.PKIid
-	SelfOrg bool // 对方是否与自己在同一组织内
+	PKIid   common.PKIid
+	SelfOrg bool // 对方是否与自己在同一组织内，在建立连接时，这个标志位如果等于 true，则表示对方节点与我在同一组织内，那么我就可以将我的 InternalEndpoint 发送给他。
 }
 
 // 用于识别 peer 节点，断言其 PKI-ID，并判断其是否与 identifier 的使用者在同一个 org 内。

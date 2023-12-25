@@ -89,9 +89,13 @@ func (sgm *SignedGossipMessage) String() string {
 		if sgm.Envelope.SecretEnvelope != nil {
 			payloadLen := len(sgm.Envelope.SecretEnvelope.Payload)
 			signatureLen := len(sgm.Envelope.SecretEnvelope.Signature)
-			secretEnvelope = fmt.Sprintf("Secret payload: %d bytes, Secret signature: %d bytes", payloadLen, signatureLen)
+			secretEnvelope = fmt.Sprintf("SecretPayload{%d bytes}, SecretSignature{%d bytes}", payloadLen, signatureLen)
 		}
-		envelope = fmt.Sprintf("Payload: %d bytes, Signature: %d bytes, %s", len(sgm.Envelope.Payload), len(sgm.Envelope.Signature), secretEnvelope)
+		if secretEnvelope == "" {
+			envelope = fmt.Sprintf("Payload{%d bytes}, Signature{%d bytes}", len(sgm.Envelope.Payload), len(sgm.Envelope.Signature))
+		} else {
+			envelope = fmt.Sprintf("Payload{%d bytes}, Signature{%d bytes}, %s", len(sgm.Envelope.Payload), len(sgm.Envelope.Signature), secretEnvelope)
+		}
 	}
 
 	gossipMessage := "No gossip message"
@@ -104,7 +108,7 @@ func (sgm *SignedGossipMessage) String() string {
 			gossipMessage = PayloadToString(sgm.GossipMessage.GetDataMsg().Payload)
 		} else if sgm.GossipMessage.GetDataUpdate() != nil {
 			// 更新区块的消息不为空
-			gossipMessage = fmt.Sprintf("DataUpdate: %s", DataUpdateToString(sgm.GossipMessage.GetDataUpdate()))
+			gossipMessage = fmt.Sprintf("DataUpdate{%s}", DataUpdateToString(sgm.GossipMessage.GetDataUpdate()))
 		} else if sgm.GossipMessage.GetMemRes() != nil {
 			gossipMessage = MembershipResponseToString(sgm.GossipMessage.GetMemRes())
 		} else if sgm.GossipMessage.GetStateSnapshot() != nil {
@@ -130,12 +134,12 @@ func (sgm *SignedGossipMessage) String() string {
 			isSimpleMsg = true
 		}
 		if !isSimpleMsg {
-			desc := fmt.Sprintf("Channel: %s, nonce: %d, tag: %s", string(sgm.GossipMessage.Channel), sgm.GossipMessage.Nonce, sgm.GossipMessage.Tag.String())
+			desc := fmt.Sprintf("channel{%s}, nonce{%d}, tag{%s}", string(sgm.GossipMessage.Channel), sgm.GossipMessage.Nonce, sgm.GossipMessage.Tag.String())
 			gossipMessage = fmt.Sprintf("%s %s", desc, gossipMessage)
 		}
 	}
 
-	return fmt.Sprintf("GossipMessage: %s, Envelope: %s", gossipMessage, envelope)
+	return fmt.Sprintf("GossipMessage{%s}, Envelope{%s}", gossipMessage, envelope)
 }
 
 /*⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓*/

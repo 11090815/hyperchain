@@ -26,14 +26,14 @@ type ReceivedMessage interface {
 
 // ConnectionInfo 表示发送消息的 peer 节点的信息。
 type ConnectionInfo struct {
-	ID       common.PKIid
+	PKIid    common.PKIid
 	Auth     *AuthInfo
 	Identity api.PeerIdentity
 	Endpoint string
 }
 
 func (c *ConnectionInfo) String() string {
-	return fmt.Sprintf("%s %v", c.Endpoint, c.ID)
+	return fmt.Sprintf("%s %v", c.Endpoint, c.PKIid)
 }
 
 // AuthInfo 用签名作为认证数据，包括被签署的消息和签名。

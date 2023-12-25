@@ -27,7 +27,7 @@ func AliveMessageToString(am *pbgossip.AliveMessage) string {
 	if err := proto.Unmarshal(am.Identity, serializedIdentity); err == nil {
 		identity = serializedIdentity.Mspid + string(serializedIdentity.IdBytes)
 	}
-	return fmt.Sprintf("AliveMessage: %s, Identity: %s, Timestamp: %v", MemberToString(am.Membership), identity, am.Timestamp)
+	return fmt.Sprintf("AliveMessage{%s}, Identity{%s}, Timestamp{%v}", MemberToString(am.Membership), identity, am.Timestamp)
 }
 
 func PayloadToString(payload *pbgossip.Payload) string {

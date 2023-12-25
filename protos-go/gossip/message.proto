@@ -287,3 +287,8 @@ message Member {
     bytes metadata = 2;
     bytes pki_id = 3;
 }
+
+service Gossip {
+    rpc GossipStream (stream Envelope) returns (stream Envelope);
+    rpc Ping(Empty) returns (Empty);
+}
