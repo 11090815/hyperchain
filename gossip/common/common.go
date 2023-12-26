@@ -1,6 +1,8 @@
 package common
 
-import "encoding/hex"
+import (
+	"encoding/hex"
+)
 
 // PKIid 的计算方法如下所示：
 //  1. 对 api.PeerIdentity 进行 protobuf 的反序列化，得到 *pbmsp.SerializedIdentity{mspid, cert}；
@@ -10,6 +12,14 @@ type PKIid []byte
 
 func (id PKIid) String() string {
 	return hex.EncodeToString(id)
+}
+
+func StrToPKIid(idStr string) PKIid {
+	id, err := hex.DecodeString(idStr)
+	if err != nil {
+		panic(err)
+	}
+	return id
 }
 
 // MessageReplacingPolicy 返回：

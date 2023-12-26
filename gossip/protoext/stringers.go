@@ -9,8 +9,8 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func MemberToString(m *pbgossip.Member) string {
-	return fmt.Sprintf("Membership Endpoint: %s, PKI-id: %s", m.Endpoint, hex.EncodeToString(m.PkiId))
+func MemberToString(m *pbgossip.Membership) string {
+	return fmt.Sprintf("Membership{Endpoint: %s, PKI-id: %s}", m.Endpoint, hex.EncodeToString(m.PkiId))
 }
 
 func MembershipResponseToString(mr *pbgossip.MembershipResponse) string {
@@ -27,7 +27,11 @@ func AliveMessageToString(am *pbgossip.AliveMessage) string {
 	if err := proto.Unmarshal(am.Identity, serializedIdentity); err == nil {
 		identity = serializedIdentity.Mspid + string(serializedIdentity.IdBytes)
 	}
-	return fmt.Sprintf("AliveMessage{%s}, Identity{%s}, Timestamp{%v}", MemberToString(am.Membership), identity, am.Timestamp)
+	if identity != "" {
+		return fmt.Sprintf("%s, Identity: %s, PeerTime{IncNum: %d, SeqNum: %d}", MemberToString(am.Membership), identity, am.Timestamp.IncNum, am.Timestamp.SeqNum)
+	} else {
+		return fmt.Sprintf("%s, PeerTime{IncNum: %d, SeqNum: %d}", MemberToString(am.Membership), am.Timestamp.IncNum, am.Timestamp.SeqNum)
+	}
 }
 
 func PayloadToString(payload *pbgossip.Payload) string {

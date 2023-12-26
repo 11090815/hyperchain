@@ -17,7 +17,7 @@ func TestAliveMessageNoActionTaken(t *testing.T) {
 			Tag:     pbgossip.GossipMessage_EMPTY,
 			Content: &pbgossip.GossipMessage_AliveMsg{
 				AliveMsg: &pbgossip.AliveMessage{
-					Membership: &pbgossip.Member{
+					Membership: &pbgossip.Membership{
 						Endpoint: "localhost",
 						Metadata: []byte{1, 2, 3, 4, 5},
 						PkiId:    []byte{17},
@@ -38,7 +38,7 @@ func TestAliveMessageNoActionTaken(t *testing.T) {
 			Tag:     pbgossip.GossipMessage_EMPTY,
 			Content: &pbgossip.GossipMessage_AliveMsg{
 				AliveMsg: &pbgossip.AliveMessage{
-					Membership: &pbgossip.Member{
+					Membership: &pbgossip.Membership{
 						Endpoint: "localhost",
 						Metadata: []byte{1, 2, 3, 4, 5},
 						PkiId:    []byte{15},
@@ -135,7 +135,7 @@ func TestAliveMessageInvalidation(t *testing.T) {
 			Tag:     pbgossip.GossipMessage_EMPTY,
 			Content: &pbgossip.GossipMessage_AliveMsg{
 				AliveMsg: &pbgossip.AliveMessage{
-					Membership: &pbgossip.Member{
+					Membership: &pbgossip.Membership{
 						Endpoint: "localhost",
 						Metadata: []byte{1, 2, 3, 4, 5},
 						PkiId:    []byte{17},
@@ -156,7 +156,7 @@ func TestAliveMessageInvalidation(t *testing.T) {
 			Tag:     pbgossip.GossipMessage_EMPTY,
 			Content: &pbgossip.GossipMessage_AliveMsg{
 				AliveMsg: &pbgossip.AliveMessage{
-					Membership: &pbgossip.Member{
+					Membership: &pbgossip.Membership{
 						Endpoint: "localhost",
 						Metadata: []byte{1, 2, 3, 4, 5},
 						PkiId:    []byte{17},
@@ -177,7 +177,7 @@ func TestAliveMessageInvalidation(t *testing.T) {
 			Tag:     pbgossip.GossipMessage_EMPTY,
 			Content: &pbgossip.GossipMessage_AliveMsg{
 				AliveMsg: &pbgossip.AliveMessage{
-					Membership: &pbgossip.Member{
+					Membership: &pbgossip.Membership{
 						Endpoint: "localhost",
 						Metadata: []byte{1, 2, 3, 4, 5},
 						PkiId:    []byte{17},

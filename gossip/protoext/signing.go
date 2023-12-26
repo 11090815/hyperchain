@@ -83,63 +83,98 @@ func (sgm *SignedGossipMessage) IsSigned() bool {
 }
 
 func (sgm *SignedGossipMessage) String() string {
-	envelope := "No envelope"
+	envelope := "nil"
 	if sgm.Envelope != nil {
 		var secretEnvelope string
 		if sgm.Envelope.SecretEnvelope != nil {
 			payloadLen := len(sgm.Envelope.SecretEnvelope.Payload)
 			signatureLen := len(sgm.Envelope.SecretEnvelope.Signature)
-			secretEnvelope = fmt.Sprintf("SecretPayload{%d bytes}, SecretSignature{%d bytes}", payloadLen, signatureLen)
+			if payloadLen == 0 {
+				secretEnvelope = ""
+			} else if signatureLen == 0 {
+				secretEnvelope = fmt.Sprintf("SecretEnvelope{Payload: %dbytes}", payloadLen)
+			} else {
+				secretEnvelope = fmt.Sprintf("SecretEnvelope{Payload: %dbytes, Signature: %dbytes}", payloadLen, signatureLen)
+			}
 		}
-		if secretEnvelope == "" {
-			envelope = fmt.Sprintf("Payload{%d bytes}, Signature{%d bytes}", len(sgm.Envelope.Payload), len(sgm.Envelope.Signature))
+
+		if len(sgm.Envelope.Payload) == 0 {
+			envelope = "nil"
 		} else {
-			envelope = fmt.Sprintf("Payload{%d bytes}, Signature{%d bytes}, %s", len(sgm.Envelope.Payload), len(sgm.Envelope.Signature), secretEnvelope)
+			if len(sgm.Envelope.Signature) == 0 {
+				envelope = fmt.Sprintf("Payload: %dbytes", len(sgm.Envelope.Payload))
+			} else {
+				envelope = fmt.Sprintf("Payload: %dbytes, Signature: %dbytes", len(sgm.Envelope.Payload), len(sgm.Envelope.Signature))
+			}
+		}
+		if secretEnvelope != "" {
+			envelope = fmt.Sprintf("%s, %s", envelope, secretEnvelope)
 		}
 	}
 
-	gossipMessage := "No gossip message"
+	var typ string = "GossipMessage"
+
+	gossipMessage := "nil"
 	if sgm.GossipMessage != nil {
 		var isSimpleMsg bool
 		if sgm.GossipMessage.GetStateResponse() != nil {
+			typ = "RemoteStateResponse"
 			gossipMessage = fmt.Sprintf("StateResponse with %d payloads", len(sgm.GossipMessage.GetStateResponse().Payloads))
 		} else if sgm.GossipMessage.GetDataMsg() != nil && sgm.GossipMessage.GetDataMsg().Payload != nil {
 			// 区块消息不为空
+			typ = "DataMessage"
 			gossipMessage = PayloadToString(sgm.GossipMessage.GetDataMsg().Payload)
 		} else if sgm.GossipMessage.GetDataUpdate() != nil {
 			// 更新区块的消息不为空
+			typ = "DataUpdate"
 			gossipMessage = fmt.Sprintf("DataUpdate{%s}", DataUpdateToString(sgm.GossipMessage.GetDataUpdate()))
 		} else if sgm.GossipMessage.GetMemRes() != nil {
+			typ = "MembershipResponse"
 			gossipMessage = MembershipResponseToString(sgm.GossipMessage.GetMemRes())
 		} else if sgm.GossipMessage.GetStateSnapshot() != nil {
+			typ = "StateInfoSnapshot"
 			gossipMessage = StateInfoSnapshotToString(sgm.GossipMessage.GetStateSnapshot())
 		} else if sgm.GossipMessage.GetPrivateRes() != nil {
+			typ = "RemotePvtDataResponse"
 			gossipMessage = RemotePvtDataResponseToString(sgm.GossipMessage.GetPrivateRes())
 		} else if sgm.GossipMessage.GetAliveMsg() != nil {
+			typ = "AliveMessage"
 			gossipMessage = AliveMessageToString(sgm.GossipMessage.GetAliveMsg())
 		} else if sgm.GossipMessage.GetMemReq() != nil {
+			typ = "MembershipRequest"
 			gossipMessage = MembershipRequestToString(sgm.GossipMessage.GetMemReq())
 		} else if sgm.GossipMessage.GetStateInfoPullReq() != nil {
+			typ = "StateInfoPullRequest"
 			gossipMessage = StateInfoPullRequestToString(sgm.GossipMessage.GetStateInfoPullReq())
 		} else if sgm.GossipMessage.GetStateInfo() != nil {
+			typ = "StateInfo"
 			gossipMessage = StateInfoToString(sgm.GossipMessage.GetStateInfo())
 		} else if sgm.GossipMessage.GetDataDig() != nil {
+			typ = "DataDigest"
 			gossipMessage = DataDigestToString(sgm.GossipMessage.GetDataDig())
 		} else if sgm.GossipMessage.GetDataReq() != nil {
+			typ = "DataRequest"
 			gossipMessage = DataRequestToString(sgm.GossipMessage.GetDataReq())
 		} else if sgm.GossipMessage.GetLeadershipMsg() != nil {
+			typ = "LeadershipMessage"
 			gossipMessage = LeadershipMessageToString(sgm.GossipMessage.GetLeadershipMsg())
 		} else {
 			gossipMessage = sgm.GossipMessage.String()
 			isSimpleMsg = true
 		}
 		if !isSimpleMsg {
-			desc := fmt.Sprintf("channel{%s}, nonce{%d}, tag{%s}", string(sgm.GossipMessage.Channel), sgm.GossipMessage.Nonce, sgm.GossipMessage.Tag.String())
+			var desc string
+			if len(sgm.GossipMessage.Channel) == 0 {
+				desc = fmt.Sprintf("Nonce: %d, Tag: %s,", sgm.GossipMessage.Nonce, sgm.GossipMessage.Tag.String())
+			} else {
+				desc = fmt.Sprintf("Channel: %x, Nonce: %d, Tag: %s,", sgm.GossipMessage.Channel, sgm.GossipMessage.Nonce, sgm.GossipMessage.Tag.String())
+			}
+
 			gossipMessage = fmt.Sprintf("%s %s", desc, gossipMessage)
 		}
 	}
 
-	return fmt.Sprintf("GossipMessage{%s}, Envelope{%s}", gossipMessage, envelope)
+	return fmt.Sprintf("%s{%s}, Envelope{%s}", typ, gossipMessage, envelope)
 }
 
 /*⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓*/

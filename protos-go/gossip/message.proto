@@ -97,7 +97,7 @@ message GossipMessage {
 }
 
 message AliveMessage {
-    Member      membership  = 1;
+    Membership  membership  = 1;
     PeerTime    timestamp   = 2;
     // Identity: proto.Marshal(*pbmsp.SerializedIdentity)
     bytes identity = 3;
@@ -111,9 +111,10 @@ message MembershipRequest {
 
 // MembershipResponse 用来回复 MembershipRequest。
 message MembershipResponse {
-    repeated Envelope   alive   = 1;
-    repeated Envelope   dead    = 2;
-    bytes               pki_id  = 3;
+    repeated Envelope   alive       = 1;
+    repeated Envelope   dead        = 2;
+    bytes               pki_id      = 3;
+    string              endpoint    = 4;
 }
 
 // DataMessage 是一个包含区块的消息。
@@ -282,7 +283,7 @@ message PeerTime {
 }
 
 // Member 持有 peer 的成员相关信息。
-message Member {
+message Membership {
     string endpoint = 1;
     bytes metadata = 2;
     bytes pki_id = 3;

@@ -36,9 +36,9 @@ type timestamp struct {
 
 func (ts *timestamp) String() string {
 	if !ts.lastSeen.IsZero() {
-		return fmt.Sprintf("timestamp{incTime: %s, seqNum: %d, lastSeen: %s}", ts.incTime.Format(time.RFC3339), ts.seqNum, ts.lastSeen.Format(time.RFC3339))
+		return fmt.Sprintf("timestamp{incTime: %d, seqNum: %d, lastSeen: %s}", ts.incTime.UnixNano(), ts.seqNum, ts.lastSeen.Format(time.RFC3339))
 	}
-	return fmt.Sprintf("timestamp{incTime: %s, seqNum: %d}", ts.incTime.Format(time.RFC3339), ts.seqNum)
+	return fmt.Sprintf("timestamp{incTime: %d, seqNum: %d}", ts.incTime.UnixNano(), ts.seqNum)
 }
 
 type aliveMsgStore struct {
@@ -107,7 +107,7 @@ type gossipDiscoveryImpl struct {
 	logger           *hlogging.HyperchainLogger
 	config           DiscoveryConfig
 	pubsub           *util.PubSub
-	aliveMsgStore    *aliveMsgStore
+	aliveMsgStore    *aliveMsgStore // 里面不会存储自己的 alive 消息
 
 	disclosurePolicy DisclosurePolicy
 
@@ -233,6 +233,7 @@ func (impl *gossipDiscoveryImpl) InitiateSync(peerNum int) {
 
 	impl.mutex.RLock()
 	n := impl.aliveMembership.Size()
+
 	k := peerNum
 	if k > n {
 		k = n
@@ -355,7 +356,7 @@ func (impl *gossipDiscoveryImpl) aliveMsgAndInternalEndpoint() (*pbgossip.Gossip
 		Tag: pbgossip.GossipMessage_EMPTY,
 		Content: &pbgossip.GossipMessage_AliveMsg{
 			AliveMsg: &pbgossip.AliveMessage{
-				Membership: &pbgossip.Member{
+				Membership: &pbgossip.Membership{
 					Endpoint: impl.self.ExternalEndpoint,
 					Metadata: impl.self.Metadata,
 					PkiId:    impl.self.PKIid,
@@ -419,9 +420,10 @@ func (impl *gossipDiscoveryImpl) createMembershipResponse(me *protoext.SignedGos
 	}
 
 	return &pbgossip.MembershipResponse{
-		Alive: alivePeers,
-		Dead:  deadPeers,
-		PkiId: impl.self.PKIid,
+		Alive:    append(alivePeers, omitConcealedFields(me)),
+		Dead:     deadPeers,
+		PkiId:    impl.self.PKIid,
+		Endpoint: impl.self.ExternalEndpoint,
 	}
 }
 
@@ -480,7 +482,7 @@ func (impl *gossipDiscoveryImpl) getDeadMembers() []common.PKIid {
 		elapsedNonAliveTime := time.Since(last.lastSeen)
 		if elapsedNonAliveTime > impl.config.AliveExpirationTimeout {
 			impl.logger.Warnf("Haven't heard from %s for %vs.", id, elapsedNonAliveTime.Seconds())
-			dead = append(dead, common.PKIid(id))
+			dead = append(dead, common.StrToPKIid(id))
 		}
 	}
 
@@ -503,7 +505,6 @@ func (impl *gossipDiscoveryImpl) addDeadMembersAndRemoveThemFromAliveMap(dead []
 
 		impl.deadLastTS[pkiID.String()] = impl.aliveLastTS[pkiID.String()]
 		delete(impl.aliveLastTS, pkiID.String())
-
 		if aliveMsg := impl.aliveMembership.MsgByID(pkiID); aliveMsg != nil {
 			impl.deadMembership.Put(pkiID, aliveMsg)
 			impl.aliveMembership.Remove(pkiID)
@@ -607,7 +608,7 @@ func (impl *gossipDiscoveryImpl) updateAliveMember(aliveMember *protoext.SignedG
 		impl.logger.Debugf("Putting alive membership in map for node %s: %v.", pkiIDStr, *aliveMember)
 		impl.aliveMembership.Put(aliveMsg.Membership.PkiId, &protoext.SignedGossipMessage{GossipMessage: aliveMember.GossipMessage, Envelope: aliveMember.Envelope})
 	} else {
-		impl.logger.Debugf("Updating alive membership for node %s: %v.", pkiIDStr, protoext.AliveMessageToString(aliveMsg))
+		impl.logger.Debugf("Updating alive membership for node %s, new info: %v.", pkiIDStr, protoext.AliveMessageToString(aliveMsg))
 		aliveMembership.GossipMessage = aliveMember.GossipMessage
 		aliveMembership.Envelope = aliveMember.Envelope
 	}
@@ -709,12 +710,12 @@ func (impl *gossipDiscoveryImpl) handleAliveMessage(signedMsg *protoext.SignedGo
 			// 一个新的 alive 消息，可以用来更新节点的信息
 			impl.updateAliveMember(signedMsg)
 		} else if !same(lastAliveTS, peerTime) {
-			impl.logger.Debugf("This is the previous alive message, so we can ignore it.", pkiIDStr)
+			impl.logger.Debugf("This is the previous alive message from %s, last_alive_ts <%s> against received_alive_ts <%s>.", pkiIDStr, lastAliveTS.String(), peerTime.String())
 		}
 	}
 }
 
-func (impl *gossipDiscoveryImpl) sendMemResponse(target *pbgossip.Member, internalPoint string, nonce uint64) {
+func (impl *gossipDiscoveryImpl) sendMemResponse(target *pbgossip.Membership, internalPoint string, nonce uint64) {
 	targetPeer := &NetworkMember{
 		ExternalEndpoint: target.Endpoint,
 		Metadata:         target.Metadata,
@@ -778,14 +779,16 @@ func (impl *gossipDiscoveryImpl) handleMessage(receivedMsg protoext.ReceivedMess
 
 	switch {
 	case signedGossipMessage.GossipMessage.GetAliveMsg() != nil:
-		// 应该是检查消息是否被正确签名
-		if !impl.cryptoService.ValidateAliveMsg(signedGossipMessage) {
+		// 设发送此 alive 消息 mi 的节点是 pi，将 mi 和存储在本地的所有由 pi 发送过来的 alive 消息进行比较，
+		// 如果 mi 比其中的某个 alive 消息的时间戳早，那么这将代表 mi 消息已经失效了。
+		//
+		// CheckValid 一定要在 ValidateAliveMsg 之前，不然 TestValidation 测试函数不能通过测试。
+		if !impl.aliveMsgStore.CheckValid(signedGossipMessage) {
 			return
 		}
 
-		// 设发送此 alive 消息 mi 的节点是 pi，将 mi 和存储在本地的所有由 pi 发送过来的 alive 消息进行比较，
-		// 如果 mi 比其中的某个 alive 消息的时间戳早，那么这将代表 mi 消息已经失效了。
-		if !impl.aliveMsgStore.CheckValid(signedGossipMessage) {
+		// 应该是检查消息是否被正确签名
+		if !impl.cryptoService.ValidateAliveMsg(signedGossipMessage) {
 			return
 		}
 
@@ -961,7 +964,7 @@ func (impl *gossipDiscoveryImpl) reconnectToDeadRoutine() {
 
 		deadMembers := []*NetworkMember{}
 		impl.mutex.RLock()
-		for pkiID, _ := range impl.deadLastTS {
+		for pkiID := range impl.deadLastTS {
 			deadMembers = append(deadMembers, impl.id2Member[pkiID])
 		}
 		impl.mutex.RUnlock()
@@ -969,6 +972,7 @@ func (impl *gossipDiscoveryImpl) reconnectToDeadRoutine() {
 		for _, member := range deadMembers {
 			wg.Add(1)
 			go func(member *NetworkMember) {
+				defer wg.Done()
 				if impl.commService.Ping(member) {
 					impl.logger.Debugf("Peer %s is dead before, but it can respond us now, so send MembershipRequest to him.", member.PKIid.String())
 					// 将我的 InternalEndpoint 发送给对方。
