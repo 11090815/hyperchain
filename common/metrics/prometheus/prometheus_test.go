@@ -32,6 +32,8 @@ func TestMetricsCounter(t *testing.T) {
 	provider := &prometheus.Provider{}
 	counter := provider.NewCounter(counterOpts)
 	counter.With("alpha", "a", "beta", "b").Add(1)
+	// counter.With("alpha", "a", "beta", "b", "lambda", "l").Add(1) panic: inconsistent label cardinality: expected 2 label values but got 3 in prometheus.Labels{"alpha":"a", "beta":"b", "lambda":"l"}
+	// counter.Add(2) panic: inconsistent label cardinality: expected 2 label values but got 0 in prometheus.Labels{}
 	// counter.With("alpha", "a").Add(1) panic: inconsistent label cardinality: expected 2 label values but got 1 in prometheus.Labels{"alpha":"a"}
 	// counter.With("alpha", "aardvark", "lambda", "l").Add(2) panic: label name "beta" missing in label map
 

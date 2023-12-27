@@ -1169,11 +1169,11 @@ func TestExpirationNoSecretEnvelope(t *testing.T) {
 		config: DiscoveryConfig{
 			AliveExpirationTimeout: time.Millisecond,
 		},
-		mutex:                   &sync.RWMutex{},
-		aliveMembership:        util.NewMembershipStore(),
-		deadMembership:         util.NewMembershipStore(),
-		logger:                 logger,
-		anchorPeerTracker:      mockTracker,
+		mutex:             &sync.RWMutex{},
+		aliveMembership:   util.NewMembershipStore(),
+		deadMembership:    util.NewMembershipStore(),
+		logger:            logger,
+		anchorPeerTracker: mockTracker,
 	})
 
 	msg := &pbgossip.GossipMessage{

@@ -11,6 +11,9 @@ import (
 type PKIid []byte
 
 func (id PKIid) String() string {
+	if len(id) == 0 {
+		return "<nil>"
+	}
 	return hex.EncodeToString(id)
 }
 
@@ -44,3 +47,6 @@ type ChannelID []byte
 func (c ChannelID) String() string {
 	return hex.EncodeToString(c)
 }
+
+// MessageAcceptor 是一个谓词，用于确定创建 MessageAcceptor 实例的订阅者对哪些消息感兴趣。
+type MessageAcceptor func(interface{}) bool
