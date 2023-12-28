@@ -147,9 +147,8 @@ func (impl *leaderElectionServiceImpl) handleMessages() {
 				msgType = "declaration"
 			}
 			impl.logger.Debugf("Peer %s sent us %s.", hex.EncodeToString(msg.GetLeadershipMsg().PkiId), msgType)
-			impl.mutex.Lock()
-			defer impl.mutex.Unlock()
 
+			impl.mutex.Lock()
 			if !msg.GetLeadershipMsg().IsDeclaration { // is proposal
 				impl.proposals.Add(common.PKIid(msg.GetLeadershipMsg().PkiId))
 			} else if msg.GetLeadershipMsg().IsDeclaration {
@@ -158,9 +157,11 @@ func (impl *leaderElectionServiceImpl) handleMessages() {
 					impl.interruptCh <- struct{}{}
 				}
 				if bytes.Compare(msg.GetLeadershipMsg().PkiId, impl.id) < 0 && impl.IsLeader() {
+					// 对方更适合当 leader，但是如果此时自己是 leader，那么就放弃 leader 的身份。
 					impl.stopBeingLeader()
 				}
 			}
+			impl.mutex.Unlock()
 		}
 	}
 }
@@ -177,18 +178,31 @@ func (impl *leaderElectionServiceImpl) run() {
 		}
 		// 如果已经有 leader，且自己放弃竞选，则恢复自己参与竞选的雄心
 		if impl.isLeaderExists() && impl.isWaiving() {
-			impl.stopWaiving()
+			impl.logger.Debug("Stopping waiving.")
+			impl.mutex.Lock()
+			atomic.StoreInt32(&impl.isWaive, 0)
+			impl.waiveTimer.Stop()
+			impl.mutex.Unlock()
 		}
 		if impl.isStopped() {
 			return
 		}
 		if impl.IsLeader() {
 			// 可能就在前面的一瞬间，我们在 leaderElection 方法所定义的选举过程中，发现参与竞选的节点里，我的 id 最小，所以我就成为了 leader。
-			impl.leader()
+			declaration := impl.adapter.CreateMessage(true)
+			impl.adapter.Gossip(declaration)
+			impl.adapter.ReportMetrics(true)
+			impl.waitForInterrupt(impl.config.LeaderAliveThreshold / 2)
 		} else {
 			// 如果我不是 leader，那么我就认为目前网络中不存在 leader（将 leaderExists 标志位设为 0），然后等待默认时间 10 秒，再回到 for 循环的开始处，
 			// 开始选举新的 leader。
-			impl.follower()
+			impl.proposals.Clear()
+			atomic.StoreInt32(&impl.leaderExists, 0)
+			impl.adapter.ReportMetrics(false)
+			select {
+			case <-time.After(impl.config.LeaderAliveThreshold):
+			case <-impl.stopCh:
+			}
 		}
 	}
 }
@@ -224,30 +238,15 @@ func (impl *leaderElectionServiceImpl) leaderElection() {
 	}
 
 	// 目前，在我所收到的提案中，可以看出我的 id 是最小的，那么就让我自己成为 leader。
-	impl.beLeader()
+	impl.logger.Infof("I (%s) becoming a leader.", impl.id.String())
+	atomic.StoreInt32(&impl.isLeader, 1)
+	impl.callback(true)
 	atomic.StoreInt32(&impl.leaderExists, 1)
 }
 
 func (impl *leaderElectionServiceImpl) propose() {
 	proposal := impl.adapter.CreateMessage(false)
 	impl.adapter.Gossip(proposal)
-}
-
-func (impl *leaderElectionServiceImpl) follower() {
-	impl.proposals.Clear()
-	atomic.StoreInt32(&impl.leaderExists, 0)
-	impl.adapter.ReportMetrics(false)
-	select {
-	case <-time.After(impl.config.LeaderAliveThreshold):
-	case <-impl.stopCh:
-	}
-}
-
-func (impl *leaderElectionServiceImpl) leader() {
-	declaration := impl.adapter.CreateMessage(true)
-	impl.adapter.Gossip(declaration)
-	impl.adapter.ReportMetrics(true)
-	impl.waitForInterrupt(impl.config.LeaderAliveThreshold / 2)
 }
 
 func (impl *leaderElectionServiceImpl) waitForMembershipStabilization(timeLimit time.Duration) {
@@ -274,14 +273,16 @@ func (impl *leaderElectionServiceImpl) waitForInterrupt(timeout time.Duration) {
 	impl.mutex.Unlock()
 
 	select {
-	case <-impl.interruptCh:
+	case <-impl.interruptCh: // 当有声明自己是 leader 的消息到来时，会往 interruptCh 通道里添加新的内容
 	case <-impl.stopCh:
 	case <-time.After(timeout):
 	}
 
 	impl.mutex.Lock()
 	impl.sleeping = false
-	impl.drainInterruptChannel()
+	if len(impl.interruptCh) == 1 {
+		<-impl.interruptCh
+	}
 	impl.mutex.Unlock()
 }
 
@@ -289,26 +290,6 @@ func (impl *leaderElectionServiceImpl) stopBeingLeader() {
 	impl.logger.Infof("I (%s) stopped being a leader.", impl.id.String())
 	atomic.StoreInt32(&impl.isLeader, 1)
 	impl.callback(false)
-}
-
-func (impl *leaderElectionServiceImpl) stopWaiving() {
-	impl.logger.Debug("Stopping waiving.")
-	impl.mutex.Lock()
-	defer impl.mutex.Unlock()
-	atomic.StoreInt32(&impl.isWaive, 0)
-	impl.waiveTimer.Stop()
-}
-
-func (impl *leaderElectionServiceImpl) beLeader() {
-	impl.logger.Infof("I (%s) becoming a leader.", impl.id.String())
-	atomic.StoreInt32(&impl.isLeader, 1)
-	impl.callback(true)
-}
-
-func (impl *leaderElectionServiceImpl) drainInterruptChannel() {
-	if len(impl.interruptCh) == 1 {
-		<-impl.interruptCh
-	}
 }
 
 func (impl *leaderElectionServiceImpl) isAlive(id common.PKIid) bool {

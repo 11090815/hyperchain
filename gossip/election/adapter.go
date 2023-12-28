@@ -2,11 +2,13 @@ package election
 
 import (
 	"bytes"
+	"time"
 
 	"github.com/11090815/hyperchain/common/hlogging"
 	"github.com/11090815/hyperchain/gossip/common"
 	"github.com/11090815/hyperchain/gossip/discovery"
 	"github.com/11090815/hyperchain/gossip/metrics"
+	gossiputil "github.com/11090815/hyperchain/gossip/util"
 	pbgossip "github.com/11090815/hyperchain/protos-go/gossip"
 )
 
@@ -36,6 +38,19 @@ type adapterImpl struct {
 
 	stopCh  chan struct{}
 	metrics *metrics.ElectionMetrics
+}
+
+func NewAdapter(gossip gossip, id common.PKIid, channelID common.ChannelID, metrics *metrics.ElectionMetrics, endpoint string) LeaderElectionAdapter {
+	return &adapterImpl{
+		gossip:    gossip,
+		selfPKIid: id,
+		incTime:   uint64(time.Now().UnixNano()),
+		seqNum:    0,
+		channel:   channelID,
+		logger:    gossiputil.GetLogger(gossiputil.ElectionLogger, endpoint),
+		stopCh:    make(chan struct{}),
+		metrics:   metrics,
+	}
 }
 
 func (impl *adapterImpl) Gossip(msg *pbgossip.GossipMessage) {
