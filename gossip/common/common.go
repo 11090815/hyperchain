@@ -1,6 +1,7 @@
 package common
 
 import (
+	"bytes"
 	"encoding/hex"
 )
 
@@ -17,6 +18,10 @@ func (id PKIid) String() string {
 	return hex.EncodeToString(id)
 }
 
+func (id PKIid) Equal(other PKIid) bool {
+	return bytes.Equal(id, other)
+}
+
 func StrToPKIid(idStr string) PKIid {
 	id, err := hex.DecodeString(idStr)
 	if err != nil {
@@ -24,6 +29,10 @@ func StrToPKIid(idStr string) PKIid {
 	}
 	return id
 }
+
+func PKIidToStr(id []byte) string {
+	return hex.EncodeToString(id)
+} 
 
 // MessageReplacingPolicy 返回：
 // MESSAGE_INVALIDATES（如果该消息使那条消息无效）；

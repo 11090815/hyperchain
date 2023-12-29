@@ -78,6 +78,8 @@ func NewLeaderElectionService(adapter LeaderElectionAdapter, id common.PKIid, ca
 		logger:      util.GetLogger(util.ElectionLogger, endpoint),
 		callback:    noopCallback,
 		config:      config,
+		mutex:       &sync.Mutex{},
+		stopWg:      &sync.WaitGroup{},
 	}
 
 	if callback != nil {
@@ -150,7 +152,7 @@ func (impl *leaderElectionServiceImpl) handleMessages() {
 
 			impl.mutex.Lock()
 			if !msg.GetLeadershipMsg().IsDeclaration { // is proposal
-				impl.proposals.Add(common.PKIid(msg.GetLeadershipMsg().PkiId))
+				impl.proposals.Add(common.PKIidToStr(msg.GetLeadershipMsg().PkiId))
 			} else if msg.GetLeadershipMsg().IsDeclaration {
 				atomic.StoreInt32(&impl.leaderExists, 1) // 现在虽然选出了 leader，但是过一段时间后，这个标志位还会被设为 0，到时候还得重新选 leader。
 				if impl.sleeping && len(impl.interruptCh) == 0 {
@@ -158,6 +160,7 @@ func (impl *leaderElectionServiceImpl) handleMessages() {
 				}
 				if bytes.Compare(msg.GetLeadershipMsg().PkiId, impl.id) < 0 && impl.IsLeader() {
 					// 对方更适合当 leader，但是如果此时自己是 leader，那么就放弃 leader 的身份。
+					impl.logger.Infof("Peer %s is better than me %s to be leader.", hex.EncodeToString(msg.GetLeadershipMsg().PkiId), impl.id.String())
 					impl.stopBeingLeader()
 				}
 			}
@@ -230,9 +233,10 @@ func (impl *leaderElectionServiceImpl) leaderElection() {
 
 	// leader 还未选出，翻看一下是否有节点比自己更适合做 leader
 	for _, proposal := range impl.proposals.ToArray() {
-		id := proposal.(common.PKIid)
-		if bytes.Compare(id, impl.id) < 0 {
-			impl.logger.Debugf("Peer %s is better than me to be a leader.", id.String())
+		id := proposal.(string)
+		idBytes := common.StrToPKIid(id)
+		if bytes.Compare(idBytes, impl.id) < 0 {
+			impl.logger.Debugf("Peer %s is better than me to be a leader.", id)
 			return
 		}
 	}
@@ -244,6 +248,10 @@ func (impl *leaderElectionServiceImpl) leaderElection() {
 	atomic.StoreInt32(&impl.leaderExists, 1)
 }
 
+// propose 将自己的 id 包装成 LeadershipMessage 消息，然后广播出去。
+//
+// 注意：propose 将 LeaderShipMessage 消息结构的 IsDeclaration 设置成 false，所以并不是
+// 告诉别人我想当 leader。
 func (impl *leaderElectionServiceImpl) propose() {
 	proposal := impl.adapter.CreateMessage(false)
 	impl.adapter.Gossip(proposal)
@@ -274,6 +282,7 @@ func (impl *leaderElectionServiceImpl) waitForInterrupt(timeout time.Duration) {
 
 	select {
 	case <-impl.interruptCh: // 当有声明自己是 leader 的消息到来时，会往 interruptCh 通道里添加新的内容
+		impl.logger.Info("Someone declares he is leader.")
 	case <-impl.stopCh:
 	case <-time.After(timeout):
 	}
@@ -288,7 +297,7 @@ func (impl *leaderElectionServiceImpl) waitForInterrupt(timeout time.Duration) {
 
 func (impl *leaderElectionServiceImpl) stopBeingLeader() {
 	impl.logger.Infof("I (%s) stopped being a leader.", impl.id.String())
-	atomic.StoreInt32(&impl.isLeader, 1)
+	atomic.StoreInt32(&impl.isLeader, 0)
 	impl.callback(false)
 }
 
