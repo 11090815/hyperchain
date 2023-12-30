@@ -521,3 +521,38 @@ func TestPartition(t *testing.T) {
 		}
 	}
 }
+
+func TestStopLeader(t *testing.T) {
+	ids := []common.PKIid{
+		common.PKIid("p5"),
+		common.PKIid("p4"),
+		common.PKIid("p3"),
+		common.PKIid("p2"),
+		common.PKIid("p1"),
+		common.PKIid("p0"),
+	}
+
+	peers := createPeers(0, ids...)
+
+	leaders := waitForLeaderElection(t, peers)
+	require.Len(t, leaders, 1)
+
+	require.Equal(t, hex.EncodeToString([]byte("p0")), leaders[0])
+
+	peers[len(peers)-1].Waive()
+
+	leaders = waitForLeaderElection(t, peers)
+	require.Len(t, leaders, 1)
+	require.Equal(t, hex.EncodeToString([]byte("p1")), leaders[0])
+	time.Sleep(testLeaderAliveThreshold * 6)
+	leaders = waitForLeaderElection(t, peers)
+	require.Len(t, leaders, 1)
+
+	require.Equal(t, hex.EncodeToString([]byte("p1")), leaders[0])
+
+	peers[len(peers)-2].Waive()
+
+	leaders = waitForLeaderElection(t, peers)
+	require.Len(t, leaders, 1)
+	require.Equal(t, hex.EncodeToString([]byte("p0")), leaders[0])
+}

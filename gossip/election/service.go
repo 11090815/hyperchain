@@ -37,7 +37,6 @@ type leaderElectionServiceImpl struct {
 	config       ElectionConfig
 	adapter      LeaderElectionAdapter
 	interruptCh  chan struct{}
-	sleeping     bool
 
 	mutex *sync.Mutex
 }
@@ -74,7 +73,7 @@ func NewLeaderElectionService(adapter LeaderElectionAdapter, id common.PKIid, ca
 		proposals:   util.NewSet(),
 		adapter:     adapter,
 		stopCh:      make(chan struct{}),
-		interruptCh: make(chan struct{}, 1),
+		interruptCh: make(chan struct{}),
 		logger:      util.GetLogger(util.ElectionLogger, endpoint),
 		callback:    noopCallback,
 		config:      config,
@@ -155,8 +154,9 @@ func (impl *leaderElectionServiceImpl) handleMessages() {
 				impl.proposals.Add(common.PKIidToStr(msg.GetLeadershipMsg().PkiId))
 			} else if msg.GetLeadershipMsg().IsDeclaration {
 				atomic.StoreInt32(&impl.leaderExists, 1) // 现在虽然选出了 leader，但是过一段时间后，这个标志位还会被设为 0，到时候还得重新选 leader。
-				if impl.sleeping && len(impl.interruptCh) == 0 {
-					impl.interruptCh <- struct{}{}
+				select {
+				case impl.interruptCh <- struct{}{}:
+				default:
 				}
 				if bytes.Compare(msg.GetLeadershipMsg().PkiId, impl.id) < 0 && impl.IsLeader() {
 					// 对方更适合当 leader，但是如果此时自己是 leader，那么就放弃 leader 的身份。
@@ -216,11 +216,13 @@ func (impl *leaderElectionServiceImpl) leaderElection() {
 		return
 	}
 
-	// 提议自己是 leader
-	impl.propose()
-	// 收集其他节点的提案
+	// 广播自己的 id
+	proposal := impl.adapter.CreateMessage(false)
+	impl.adapter.Gossip(proposal)
+	// 收集其他节点的 id
 	impl.waitForInterrupt(impl.config.LeaderElectionDuration)
-	// 如果 leader 已被选出，则退出选举过程
+	// 如果我们不是因为等待 LeaderElectionDuration 超时时间到了而退出 waitForInterrupt 方法，而是因为收到了其他节点的 declaration 消息才退出了
+	// waitForInterrupt 方法，那么此时，我们已经将 leaderExists 标志位设置成 1 了。
 	if impl.isLeaderExists() {
 		impl.logger.Info("Some peer is already a leader.")
 		return
@@ -248,15 +250,6 @@ func (impl *leaderElectionServiceImpl) leaderElection() {
 	atomic.StoreInt32(&impl.leaderExists, 1)
 }
 
-// propose 将自己的 id 包装成 LeadershipMessage 消息，然后广播出去。
-//
-// 注意：propose 将 LeaderShipMessage 消息结构的 IsDeclaration 设置成 false，所以并不是
-// 告诉别人我想当 leader。
-func (impl *leaderElectionServiceImpl) propose() {
-	proposal := impl.adapter.CreateMessage(false)
-	impl.adapter.Gossip(proposal)
-}
-
 func (impl *leaderElectionServiceImpl) waitForMembershipStabilization(timeLimit time.Duration) {
 	endTime := time.Now().Add(timeLimit)
 	viewSize := len(impl.adapter.Peers())
@@ -265,19 +258,18 @@ func (impl *leaderElectionServiceImpl) waitForMembershipStabilization(timeLimit 
 		time.Sleep(impl.config.MembershipSampleInterval)
 		newSize := len(impl.adapter.Peers())
 		if newSize == viewSize || time.Now().After(endTime) || impl.isLeaderExists() {
-			// 当前成员数量与上一期成员数量一样，或者到时间了，或者已经选出 leader 了，则我们认为网络中的成员达到稳定了
+			// 当前成员数量与上一期成员数量一样，或者等待超时了，或者已经选出 leader 了，
+			// 则我们认为网络中的成员达到稳定了
+			impl.logger.Debugf("Membership reach stabilization, found %d peers.", len(impl.adapter.Peers()))
 			return
 		}
 		viewSize = newSize
 	}
-
-	impl.logger.Debugf("Membership reach stabilization, found %d peers.", len(impl.adapter.Peers()))
 }
 
 // waitForInterrupt 等待直到 interruptCh 通道里有数据为止。
 func (impl *leaderElectionServiceImpl) waitForInterrupt(timeout time.Duration) {
 	impl.mutex.Lock()
-	impl.sleeping = true
 	impl.mutex.Unlock()
 
 	select {
@@ -286,13 +278,6 @@ func (impl *leaderElectionServiceImpl) waitForInterrupt(timeout time.Duration) {
 	case <-impl.stopCh:
 	case <-time.After(timeout):
 	}
-
-	impl.mutex.Lock()
-	impl.sleeping = false
-	if len(impl.interruptCh) == 1 {
-		<-impl.interruptCh
-	}
-	impl.mutex.Unlock()
 }
 
 func (impl *leaderElectionServiceImpl) stopBeingLeader() {
