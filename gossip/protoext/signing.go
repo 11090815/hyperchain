@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/11090815/hyperchain/gossip/api"
 	pbgossip "github.com/11090815/hyperchain/protos-go/gossip"
 	"google.golang.org/protobuf/proto"
 )
@@ -12,7 +13,7 @@ import (
 type SignerFunc func(msg []byte) ([]byte, error)
 
 // VerifierFunc 根据给定的 peer 身份验证签名的正确性。
-type VerifierFunc func(peerIdentity []byte, signature []byte, message []byte) error
+type VerifierFunc func(peerIdentity api.PeerIdentity, signature []byte, message []byte) error
 
 type SignedGossipMessage struct {
 	Envelope      *pbgossip.Envelope

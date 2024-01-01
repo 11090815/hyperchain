@@ -5,6 +5,7 @@ import (
 
 	"github.com/11090815/hyperchain/gossip/common"
 	pbcommon "github.com/11090815/hyperchain/protos-go/common"
+	"google.golang.org/grpc"
 )
 
 // PeerIdentity 的计算方法如下所示：
@@ -78,3 +79,5 @@ type MessageCryptoService interface {
 
 // PeerSuspector 返回具有给定身份的 peer 是否被怀疑已被撤销，或其 CA 是否已被撤销。
 type PeerSuspector func(peerIdentity PeerIdentity) bool
+
+type PeerSecureDialOpts func() []grpc.DialOption

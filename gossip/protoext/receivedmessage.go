@@ -16,7 +16,7 @@ type ReceivedMessage interface {
 
 	GetSignedGossipMessage() *SignedGossipMessage
 
-	GetSourceEnvelope() *pbgossip.Envelope
+	GetEnvelope() *pbgossip.Envelope
 
 	GetConnectionInfo() *ConnectionInfo
 

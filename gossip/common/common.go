@@ -3,6 +3,7 @@ package common
 import (
 	"bytes"
 	"encoding/hex"
+	"sync/atomic"
 )
 
 // PKIid 的计算方法如下所示：
@@ -32,7 +33,9 @@ func StrToPKIid(idStr string) PKIid {
 
 func PKIidToStr(id []byte) string {
 	return hex.EncodeToString(id)
-} 
+}
+
+/*⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓*/
 
 // MessageReplacingPolicy 返回：
 // MESSAGE_INVALIDATES（如果该消息使那条消息无效）；
@@ -59,3 +62,8 @@ func (c ChannelID) String() string {
 
 // MessageAcceptor 是一个谓词，用于确定创建 MessageAcceptor 实例的订阅者对哪些消息感兴趣。
 type MessageAcceptor func(interface{}) bool
+
+type TLSCertificates struct {
+	TLSServerCert atomic.Value
+	TLSClientCert atomic.Value
+}

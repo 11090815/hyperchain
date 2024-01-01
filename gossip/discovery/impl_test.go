@@ -67,7 +67,7 @@ func (mock *mockReceivedMessage) GetSignedGossipMessage() *protoext.SignedGossip
 	return mock.msg
 }
 
-func (mock *mockReceivedMessage) GetSourceEnvelope() *pbgossip.Envelope {
+func (mock *mockReceivedMessage) GetEnvelope() *pbgossip.Envelope {
 	panic("implement me")
 }
 

@@ -102,3 +102,21 @@ func TestChanPush(t *testing.T) {
 	ch <- struct{}{}
 	t.Log(len(ch))
 }
+
+func TestCloseChan(t *testing.T) {
+	ch := make(chan struct{})
+	
+	close(ch)
+
+	i := 0
+	for {
+		select {
+		case <-ch:
+			t.Log("test close chan")
+			i++
+			if i > 100 {
+				return
+			}
+		}
+	}
+}
