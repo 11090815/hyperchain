@@ -138,8 +138,8 @@ func TestSecureOptionsTLSConfig(t *testing.T) {
 		tc          *tls.Config
 		expectedErr string
 	}{
-		{desc: "TLSDisabled"},
-		{desc: "TLSDisabled", so: SecureOptions{UseTLS: true}, tc: &tls.Config{MinVersion: tls.VersionTLS12}},
+		{desc: "TLSDisabled#1"},
+		{desc: "TLSDisabled#2", so: SecureOptions{UseTLS: true}, tc: &tls.Config{MinVersion: tls.VersionTLS12}},
 		{
 			desc: "ServerNameOverride",
 			so:   SecureOptions{UseTLS: true, ServerNameOverride: "bob"},

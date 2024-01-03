@@ -10,6 +10,7 @@ import (
 
 	"github.com/11090815/hyperchain/common/hlogging"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
 )
@@ -112,7 +113,8 @@ func (cc ClientConfig) GetGRPCDialOptions() ([]grpc.DialOption, error) {
 	}
 	if tlsCfg != nil {
 		// 一旦执行了下面两行代码，那么就需要服务端也要启用 TLS 连接。
-		creds := &clientCredentials{TLSConfig: tlsCfg}
+		// creds := &clientCredentials{TLSConfig: tlsCfg}
+		creds := credentials.NewTLS(tlsCfg)
 		opts = append(opts, grpc.WithTransportCredentials(creds))
 	} else {
 		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -159,7 +161,7 @@ type SecureOptions struct {
 	// 是否使用 TLS 用于通信。
 	UseTLS bool
 
-	// 再进行身份验证的时候，是否需要客户端提供证书，如果服务端要验证客户端的身份，则该字段必须置为 true。
+	// 在进行身份验证的时候，是否需要客户端提供证书，如果服务端要验证客户端的身份，则该字段必须置为 true。
 	RequireClientCert bool
 
 	// TLS 支持的密码套件。
@@ -190,7 +192,7 @@ func (so SecureOptions) ToTLSConfig() (*tls.Config, error) {
 
 	cfg := &tls.Config{
 		MinVersion:            tls.VersionTLS12,
-		MaxVersion:            tls.VersionTLS12,
+		// MaxVersion:            tls.VersionTLS12,
 		ServerName:            so.ServerNameOverride,
 		VerifyPeerCertificate: so.VerifyCertificate,
 	}

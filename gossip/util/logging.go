@@ -11,6 +11,7 @@ const (
 	DiscoveryLogger = "gossip.discovery"
 	ElectionLogger  = "gossip.election"
 	CommLogger      = "gossip.comm"
+	ConnLogger      = "gossip.comm.conn"
 )
 
 var (
@@ -23,7 +24,7 @@ func GetLogger(model string, endpoint string) *hlogging.HyperchainLogger {
 	if endpoint == "" {
 		loggerName = model
 	} else {
-		loggerName = fmt.Sprintf("%s@%s", endpoint, model)
+		loggerName = fmt.Sprintf("%s@%s", model, endpoint)
 	}
 
 	mutex.Lock()

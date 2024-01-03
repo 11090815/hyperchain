@@ -320,6 +320,8 @@ func TestNewSecureGRPCServerWithCredentials(t *testing.T) {
 	go server.Start()
 	defer server.Stop()
 
+	t.Log(server.Address())
+
 	key, _ := bccsp.GetRandomBytes(32)
 	protobuf.RegisterEncryptorDecryptorServer(server.Server(), &edserver{key: key})
 

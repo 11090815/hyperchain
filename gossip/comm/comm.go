@@ -46,6 +46,8 @@ type Comm interface {
 
 	CloseConn(peer *discovery.NetworkMember)
 
+	SetLogger(logger *hlogging.HyperchainLogger)
+
 	Stop()
 }
 
@@ -130,11 +132,14 @@ func (impl *commImpl) Ping(context.Context, *pbgossip.Empty) (*pbgossip.Empty, e
 }
 
 // GossipStream 实现 GossipServer 接口。
+//
+// TODO GossipStream 是什么时候调用的？
 func (impl *commImpl) GossipStream(stream pbgossip.Gossip_GossipStreamServer) error {
 	if impl.isStopped() {
 		return vars.NewPathError("communicate module is closed")
 	}
 
+	impl.logger.Debugf("Peer %s call GossipStream.", impl.pkiID.String())
 	// 我并非发起者，我的 tls 证书是 server 证书，不是 client 证书。
 	connInfo, err := impl.authenticateRemotePeer(stream, false, false)
 	if err == errProbe {
@@ -146,7 +151,7 @@ func (impl *commImpl) GossipStream(stream pbgossip.Gossip_GossipStreamServer) er
 		impl.logger.Errorf("Gossip stream failed, because %s.", err.Error())
 		return vars.NewPathError(err.Error())
 	}
-	impl.logger.Debug("Servicing %s.", extractRemoteAddress(stream))
+	impl.logger.Debugf("Servicing %s.", extractRemoteAddress(stream))
 
 	conn := impl.connStore.onConnected(stream, connInfo, impl.metrics)
 
@@ -257,6 +262,7 @@ func (impl *commImpl) Probe(peer *discovery.NetworkMember) error {
 }
 
 func (impl *commImpl) Handshake(peer *discovery.NetworkMember) (api.PeerIdentity, error) {
+	impl.logger.Debugf("Handshake with %s@%s.", peer.PKIid.String(), peer.ExternalEndpoint)
 	var dialOpts []grpc.DialOption
 	dialOpts = append(dialOpts, impl.secureDialOpts()...)
 	dialOpts = append(dialOpts, grpc.WithBlock())
@@ -315,18 +321,20 @@ func (impl *commImpl) Accept(acceptor common.MessageAcceptor) <-chan protoext.Re
 	impl.stopWg.Add(1)
 	go func() {
 		defer impl.stopWg.Done()
-		select {
-		case msg, chanOpen := <-genericCh:
-			if !chanOpen {
-				return
-			}
+		for {
 			select {
-			case specifiedCh <- msg.(*ReceivedMessageImpl):
+			case msg, chanOpen := <-genericCh:
+				if !chanOpen {
+					return
+				}
+				select {
+				case specifiedCh <- msg.(*ReceivedMessageImpl):
+				case <-impl.stopCh:
+					return
+				}
 			case <-impl.stopCh:
 				return
 			}
-		case <-impl.stopCh:
-			return
 		}
 	}()
 
@@ -344,6 +352,10 @@ func (impl *commImpl) IdentitySwitch() <-chan common.PKIid {
 func (impl *commImpl) CloseConn(peer *discovery.NetworkMember) {
 	impl.logger.Debugf("Closing connection for %s.", peer.String())
 	impl.connStore.closeConnByPKIid(peer.PKIid)
+}
+
+func (impl *commImpl) SetLogger(logger *hlogging.HyperchainLogger) {
+	impl.logger = logger
 }
 
 func (impl *commImpl) Stop() {
@@ -414,9 +426,9 @@ func (impl *commImpl) createConnectionMsg(pkiID common.PKIid, certHash []byte, c
 
 func (impl *commImpl) authenticateRemotePeer(s stream, initiator, isProbe bool) (*protoext.ConnectionInfo, error) {
 	ctx := s.Context()
-	remoteAddress := extractRemoteAddress(s)                 // 根据与对方之间的数据流 stream，获取对方的网络地址
-	remoteCertHash := extractCertificateHashFromContext(ctx) // 根据与对方之间的数据流 stream 的上下文内容，获取对方的 tls 身份证书哈希值
-
+	remoteAddress := extractRemoteAddress(s)                 // 获取对方的网络地址
+	remoteCertHash := extractCertificateHashFromContext(ctx) // 获取对方的 tls 身份证书哈希值
+	impl.logger.Debugf("Start authenticating peer %s.", remoteAddress)
 	var err error
 	var connMsg *protoext.SignedGossipMessage
 	useTLS := impl.tlsCerts != nil // 如果我们存储了 tls 证书，就说明我们采用了 tls 连接
@@ -542,26 +554,33 @@ func (impl *commImpl) createConnection(endpoint string, expectedPKIID common.PKI
 		return nil, vars.NewPathError("communicate module is stopped")
 	}
 
+	// 1. 构造 grpc 拨号选项
 	dialOpts = append(dialOpts, impl.secureDialOpts()...)
 	dialOpts = append(dialOpts, grpc.WithBlock())
 	dialOpts = append(dialOpts, impl.opts...)
 	ctx, cancel := context.WithTimeout(context.Background(), impl.config.DialTimeout)
 	defer cancel()
 
+	// 2. 建立 grpc 连接
 	cc, err = grpc.DialContext(ctx, endpoint, dialOpts...)
 	if err != nil {
 		return nil, vars.NewPathError(fmt.Sprintf("failed creating connection, because %s.", err.Error()))
 	}
+
+	// 3. 构建 gossip 客户端，并测试连通性
 	client := pbgossip.NewGossipClient(cc)
 	ctx, cancel = context.WithTimeout(context.Background(), impl.config.ConnTimeout)
 	defer cancel()
 	if _, err = client.Ping(ctx, &pbgossip.Empty{}); err != nil {
 		cc.Close()
-		return nil, vars.NewPathError(fmt.Sprintf("failed creating connection, because %s.", err.Error()))
+		return nil, vars.NewPathError(fmt.Sprintf("network connectivity test failed, because %s.", err.Error()))
 	}
 
+	// 4. 根据 gossip 客户端创建消息流，借助消息流验证对方身份的合法性
 	ctx, cancel = context.WithCancel(context.Background())
 	if stream, err = client.GossipStream(ctx); err == nil {
+		// 因为我在给 endpoint 发送消息时，发现还没与其建立连接，所以主动与其建立连接，因此我们是作为客户端，对方是服务端
+		// （rpc 服务中，被连接的是服务端，主动发起连接的是客户端）。
 		connInfo, err = impl.authenticateRemotePeer(stream, true, false)
 		if err == nil {
 			pkiID = connInfo.PKIid
@@ -586,10 +605,11 @@ func (impl *commImpl) createConnection(endpoint string, expectedPKIID common.PKI
 			}
 			conn := newConnection(client, cc, stream, impl.metrics, connConfig)
 			conn.info = connInfo
-			conn.logger = impl.logger
+			conn.logger = util.GetLogger(util.ConnLogger, endpoint)
 			conn.cancel = cancel
 
-			h := func(m *protoext.SignedGossipMessage) {
+			// 如果发送来的不是 ack 消息，则采用此 handler 处理消息
+			var h handler = func(m *protoext.SignedGossipMessage) {
 				impl.msgPublisher.DeMultiplex(&ReceivedMessageImpl{
 					conn:                conn,
 					signedGossipMessage: m,

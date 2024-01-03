@@ -1112,15 +1112,15 @@ func TestMsgStoreExpiration(t *testing.T) {
 			for _, downInst := range instances[len(instances)-2:] {
 				downCastInst := inst.discoveryImpl()
 				downCastInst.mutex.RLock()
-				if _, exist := downCastInst.aliveLastTS[string(downInst.discoveryImpl().self.PKIid)]; exist {
+				if _, exist := downCastInst.aliveLastTS[downInst.discoveryImpl().self.PKIid.String()]; exist {
 					downCastInst.mutex.RUnlock()
 					return false
 				}
-				if _, exist := downCastInst.deadLastTS[string(downInst.discoveryImpl().self.PKIid)]; exist {
+				if _, exist := downCastInst.deadLastTS[downInst.discoveryImpl().self.PKIid.String()]; exist {
 					downCastInst.mutex.RUnlock()
 					return false
 				}
-				if _, exist := downCastInst.id2Member[string(downInst.discoveryImpl().self.PKIid)]; exist {
+				if _, exist := downCastInst.id2Member[downInst.discoveryImpl().self.PKIid.String()]; exist {
 					downCastInst.mutex.RUnlock()
 					return false
 				}

@@ -43,7 +43,7 @@ func (piis PeerIdentityInfoSet) ByOrg() map[string]PeerIdentityInfoSet {
 func (piis PeerIdentityInfoSet) ByID() map[string]PeerIdentityInfo {
 	result := make(map[string]PeerIdentityInfo)
 	for _, info := range piis {
-		result[string(info.PKIid)] = info
+		result[info.PKIid.String()] = info
 	}
 
 	return result
@@ -64,7 +64,7 @@ type MessageCryptoService interface {
 
 	VerifyBlock(channelID common.ChannelID, seqNum uint64, block *pbcommon.Block) error
 
-	VerifyBlockAttestation(channelID string, block *pbcommon.Block) error
+	VerifyBlockAttestation(channelID common.ChannelID, block *pbcommon.Block) error
 
 	Sign(message []byte) ([]byte, error)
 

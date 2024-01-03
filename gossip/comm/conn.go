@@ -22,31 +22,28 @@ const (
 	nonBlockingSend = false
 )
 
-type connFactory interface {
-	createConnection(endpoint string, pkiID common.PKIid) (*connection, error)
-}
-
 type connectionStore struct {
-	config           ConnConfig
-	connFactory      connFactory
-	pki2Connections  map[string]*connection
-	destinationLocks map[string]*sync.Mutex // pki-id => lock
-	logger           *hlogging.HyperchainLogger
-	isClosing        bool
-	mutex            *sync.RWMutex
+	config          ConnConfig
+	comm            *commImpl
+	pki2Connections map[string]*connection
+	// destinationLocks map[string]*sync.Mutex // pki-id => lock
+	logger    *hlogging.HyperchainLogger
+	isClosing bool
+	mutex     *sync.RWMutex
 }
 
-func newConnectionStore(connFactory connFactory, logger *hlogging.HyperchainLogger, config ConnConfig) *connectionStore {
+func newConnectionStore(comm *commImpl, logger *hlogging.HyperchainLogger, config ConnConfig) *connectionStore {
 	return &connectionStore{
-		config:           config,
-		connFactory:      connFactory,
-		pki2Connections:  make(map[string]*connection),
-		destinationLocks: make(map[string]*sync.Mutex),
-		logger:           logger,
-		mutex:            &sync.RWMutex{},
+		config:          config,
+		comm:            comm,
+		pki2Connections: make(map[string]*connection),
+		logger: logger,
+		mutex:  &sync.RWMutex{},
 	}
 }
 
+// getConnection 根据给定的 peer 节点的 pki-id，从连接池里获取对应的网络连接，如果不存在，则建立与其之间
+// 的连接。
 func (cs *connectionStore) getConnection(peer *discovery.NetworkMember) (*connection, error) {
 	cs.mutex.RLock()
 	isClosing := cs.isClosing
@@ -56,26 +53,16 @@ func (cs *connectionStore) getConnection(peer *discovery.NetworkMember) (*connec
 		return nil, vars.NewPathError("connection store is closed")
 	}
 
-	cs.mutex.Lock()
-	destinationLock, hasConnected := cs.destinationLocks[peer.PKIid.String()]
-	if !hasConnected {
-		destinationLock = &sync.Mutex{}
-		cs.destinationLocks[peer.PKIid.String()] = destinationLock
-	}
-	cs.mutex.Unlock()
-
-	destinationLock.Lock()
 	cs.mutex.RLock()
 	conn, exists := cs.pki2Connections[peer.PKIid.String()]
 	if exists {
 		cs.mutex.RUnlock()
-		destinationLock.Unlock()
 		return conn, nil
 	}
 	cs.mutex.RUnlock()
 
-	createConnection, err := cs.connFactory.createConnection(peer.ExternalEndpoint, peer.PKIid)
-	destinationLock.Unlock()
+	cs.logger.Debugf("The connection to \"%s@%s\" has not yet been established, start creating connection now.", peer.PKIid, peer.ExternalEndpoint)
+	createConnection, err := cs.comm.createConnection(peer.ExternalEndpoint, peer.PKIid)
 
 	cs.mutex.RLock()
 	isClosing = cs.isClosing
@@ -87,9 +74,8 @@ func (cs *connectionStore) getConnection(peer *discovery.NetworkMember) (*connec
 
 	cs.mutex.Lock()
 	defer cs.mutex.Unlock()
-	delete(cs.destinationLocks, peer.PKIid.String())
 
-	// 再次检查一下，因为对方在我们尝试连接它时，建立了与我们之间的连接
+	// 再次检查一下，因为对方在我们尝试连接它时，它也在主动与我们建立连接
 	conn, exists = cs.pki2Connections[peer.PKIid.String()]
 	if exists {
 		if createConnection != nil {
@@ -261,14 +247,14 @@ func (c *connection) readFromStream(errCh chan error, msgCh chan *protoext.Signe
 			envelope, err := stream.Recv()
 			if err != nil {
 				errCh <- err
-				c.logger.Errorf("Got error when reading from stream, error is %s.", err.Error())
+				c.logger.Errorf("Got error when reading from stream, error is \"%s\".", err.Error())
 				return
 			}
 			c.metrics.ReceivedMessages.Add(1)
 			signedMsg, err := protoext.EnvelopeToSignedGossipMessage(envelope)
 			if err != nil {
 				errCh <- err
-				c.logger.Errorf("Got an invalid envelope from stream, error is %s.", err.Error())
+				c.logger.Errorf("Got an invalid envelope from stream, error is \"%s\".", err.Error())
 				return
 			}
 			select {

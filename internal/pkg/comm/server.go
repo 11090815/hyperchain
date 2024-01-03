@@ -13,6 +13,7 @@ import (
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
@@ -104,7 +105,8 @@ func NewGRPCServerFromListener(listener net.Listener, serverConfig ServerConfig)
 
 			gs.tls.MinVersion = tls.VersionTLS12
 			gs.tls.MaxVersion = tls.VersionTLS12
-			creds := &serverCreddentials{TLSConfig: gs.tls}
+			// creds := &serverCreddentials{TLSConfig: gs.tls}
+			creds := credentials.NewTLS(gs.tls)
 			serverOpts = append(serverOpts, grpc.Creds(creds))
 		} else {
 			return nil, errors.New("the config structure must provide the pem encoded data of private key and public key when use tls")

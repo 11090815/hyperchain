@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 
+	"github.com/11090815/hyperchain/gossip/common"
 	pbgossip "github.com/11090815/hyperchain/protos-go/gossip"
 	pbmsp "github.com/11090815/hyperchain/protos-go/msp"
 	"google.golang.org/protobuf/proto"
@@ -35,7 +36,10 @@ func AliveMessageToString(am *pbgossip.AliveMessage) string {
 }
 
 func PayloadToString(payload *pbgossip.Payload) string {
-	return fmt.Sprintf("Block: {Data: %dbytes, SeqNum: %d}", len(payload.Data), payload.SeqNum)
+	if payload == nil {
+		return "<nil payload>"
+	}
+	return fmt.Sprintf("Payload{Data: %dbytes, SeqNum: %d}", len(payload.Data), payload.SeqNum)
 }
 
 func DataUpdateToString(du *pbgossip.DataUpdate) string {
@@ -78,6 +82,14 @@ func DataRequestToString(dataReq *pbgossip.DataRequest) string {
 
 func LeadershipMessageToString(lm *pbgossip.LeadershipMessage) string {
 	return fmt.Sprintf("LeadershipMessage PKI-id: %s, Timestamp: %v, IsDeclaration: %v", hex.EncodeToString(lm.PkiId), lm.Timestamp, lm.IsDeclaration)
+}
+
+func ConnEstablishToString(ce *pbgossip.ConnEstablish) string {
+	return fmt.Sprintf("PKI-id: %s, TlsCertHash: %s, Probe: %v", common.PKIidToStr(ce.PkiId), hex.EncodeToString(ce.TlsCertHash), ce.Probe)
+}
+
+func DataMessageToString(ds *pbgossip.DataMessage) string {
+	return fmt.Sprintf("Payload: %s", PayloadToString(ds.Payload))
 }
 
 func RemotePvtDataResponseToString(res *pbgossip.RemotePvtDataResponse) string {

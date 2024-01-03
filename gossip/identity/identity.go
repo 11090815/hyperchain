@@ -2,6 +2,7 @@ package identity
 
 import (
 	"bytes"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -44,6 +45,24 @@ type identityMapperImpl struct {
 	stopCh     chan struct{}
 	once       sync.Once
 	selfPKIid  common.PKIid
+}
+
+func NewIdentityMapper(mcs api.MessageCryptoService, selfIdentity api.PeerIdentity, onPurge purgeTrigger, sa api.SecurityAdvisor) Mapper {
+	selfPKIID := mcs.GetPKIidOfCert(selfIdentity)
+	mapper := &identityMapperImpl{
+		onPurge:    onPurge,
+		mcs:        mcs,
+		sa:         sa,
+		pkiID2Cert: make(map[string]*storedIdentity),
+		mutex:      &sync.RWMutex{},
+		stopCh:     make(chan struct{}),
+		selfPKIid:  selfPKIID,
+	}
+	if err := mapper.Put(selfPKIID, selfIdentity); err != nil {
+		panic(fmt.Sprintf("failed putting our own identity into the identity mapper, because %s.", err.Error()))
+	}
+	go mapper.purgeUnusedIdentitiesRoutine()
+	return mapper
 }
 
 func (imi *identityMapperImpl) Put(pkiID common.PKIid, peerIdentity api.PeerIdentity) error {
@@ -183,6 +202,20 @@ func (imi *identityMapperImpl) delete(pkiID common.PKIid, peerIdentity api.PeerI
 	defer imi.mutex.Unlock()
 	imi.onPurge(pkiID, peerIdentity) // 关闭与此节点的网络连接
 	delete(imi.pkiID2Cert, pkiID.String())
+}
+
+func (imi *identityMapperImpl) purgeUnusedIdentitiesRoutine() {
+	usageTh := GetIdentityUsageThreshold()
+	for {
+		select {
+		case <-imi.stopCh:
+			return
+		case <-time.After(usageTh / 10):
+			imi.SuspectPeers(func(peerIdentity api.PeerIdentity) bool {
+				return false
+			})
+		}
+	}
 }
 
 /*⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓⛓*/

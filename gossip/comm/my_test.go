@@ -2,10 +2,12 @@ package comm
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"testing"
 	"time"
 
+	"github.com/11090815/hyperchain/gossip/protoext"
 	pbgossip "github.com/11090815/hyperchain/protos-go/gossip"
 	"github.com/11090815/hyperchain/vars"
 	"github.com/stretchr/testify/require"
@@ -25,7 +27,7 @@ type server struct {
 	// inCh chan *pbgossip.Envelope
 }
 
-func (s *server) Ping(ctx context.Context, empty *pbgossip.Empty) (*pbgossip.Empty, error) {
+func (s *server) Ping(context.Context, *pbgossip.Empty) (*pbgossip.Empty, error) {
 	return &pbgossip.Empty{}, nil
 }
 
@@ -52,7 +54,7 @@ func createClient(endpoint string, timeout time.Duration) (*client, error) {
 	return &client{
 		cl:     cl,
 		stream: stream,
-	}, nil
+	}, err
 }
 
 func createServer(addr string) (*server, error) {
@@ -80,13 +82,48 @@ func TestCommon(t *testing.T) {
 	defer cancel()
 	_, err = c.cl.Ping(ctx, &pbgossip.Empty{})
 	require.NoError(t, err)
+
+	ctx, cancel = context.WithCancel(context.Background())
+	defer cancel()
+	stream, err := c.cl.GossipStream(ctx)
+	require.NoError(t, err)
+
+	inCh := make(chan *pbgossip.Envelope, 1)
+
+	go func() {
+		for {
+			msg, err := stream.Recv()
+			if err != nil {
+				fmt.Println("err:", err.Error())
+				return
+			}
+			inCh <- msg
+		}
+	}()
+
+	msg, _ := protoext.NoopSign(&pbgossip.GossipMessage{
+		Tag:   pbgossip.GossipMessage_EMPTY,
+		Nonce: 123,
+		Content: &pbgossip.GossipMessage_Conn{
+			Conn: &pbgossip.ConnEstablish{
+				PkiId: []byte("localhost"),
+			},
+		},
+	})
+	stream.Send(msg.Envelope)
+	received := <-inCh
+	fmt.Println(received)
+
+	stream.Send(msg.Envelope)
+	received = <-inCh
+	fmt.Println(received)
 }
 
 func TestPeerExtractAddress(t *testing.T) {
 	listener, err := net.Listen("tcp", ":2048")
 	require.NoError(t, err)
 	defer listener.Close()
-	
+
 	srv := grpc.NewServer()
 	go srv.Serve(listener)
 	defer srv.Stop()
@@ -100,7 +137,7 @@ func TestPeerExtractAddress(t *testing.T) {
 
 	client := pbgossip.NewGossipClient(cc)
 
-	ctx, cancel = context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel = context.WithCancel(context.Background())
 	defer cancel()
 	stream, err := client.GossipStream(ctx)
 	require.NoError(t, err)

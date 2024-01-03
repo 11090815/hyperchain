@@ -119,7 +119,7 @@ func main() {
 	s, _ = GetAllFile("/home/iris/research/code/go/src/github.com/11090815/hyperchain", s)
 	view := &View{}
 	for _, filePath := range s {
-		res, err := SearchTextInFile(filePath, "sync.RWMutex", true)
+		res, err := SearchTextInFile(filePath, "string(", true)
 		if err != nil {
 			panic(err)
 		}

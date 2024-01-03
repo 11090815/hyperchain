@@ -31,16 +31,16 @@ type CertKeyPair struct {
 	// Signer 其实就是 *ecdsa.PrivateKey，它代表着给 TLSCert 证书签名背书的节点。
 	endorser crypto.Signer
 
-	// tlsCert 与 Cert 其实是一个东西，因为 tlsCert 其实是通过以下步骤对 Cert 进行转换得到的：
+	// x509Cert 与 Cert 其实是一个东西，因为 x509Cert 其实是通过以下步骤对 Cert 进行转换得到的：
 	//	1: block, _ := pem.Decode(Cert)
-	//	2: tlsCert, _ := x509.ParseCertificate(block.Bytes)
-	tlsCert *x509.Certificate
+	//	2: x509Cert, _ := x509.ParseCertificate(block.Bytes)
+	x509Cert *x509.Certificate
 }
 
 // PublicKeyDER x509 公钥证书的 ASN.1 DER 编码格式。
 func (ckp *CertKeyPair) PublicKeyDER() []byte {
-	raw := make([]byte, len(ckp.tlsCert.Raw))
-	copy(raw, ckp.tlsCert.Raw)
+	raw := make([]byte, len(ckp.x509Cert.Raw))
+	copy(raw, ckp.x509Cert.Raw)
 	return raw
 }
 
@@ -127,7 +127,7 @@ func newCertKeyPair(isCA bool, isServer bool, certSigner crypto.Signer, parent *
 		cert:     publicKeyDERPEM,
 		key:      privateKeyDERPEM,
 		endorser: privateKey,
-		tlsCert:  tlsCert,
+		x509Cert: tlsCert,
 	}, nil
 }
 

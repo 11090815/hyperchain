@@ -38,6 +38,6 @@ func TestSignDifferentFromParent(t *testing.T) {
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	require.NoError(t, err)
 
-	_, err = x509.CreateCertificate(rand.Reader, &template, ca.tlsCert, &privateKey.PublicKey, privateKey)
+	_, err = x509.CreateCertificate(rand.Reader, &template, ca.x509Cert, &privateKey.PublicKey, privateKey)
 	require.Contains(t, err.Error(), "x509: provided PrivateKey doesn't match parent's PublicKey")
 }

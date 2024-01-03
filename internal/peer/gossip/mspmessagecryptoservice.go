@@ -86,11 +86,11 @@ func (mmcs *MSPMessageCryptoService) VerifyBlock(channelID common.ChannelID, seq
 		return fmt.Errorf("the block data hash in block header is [%x], but the actual block data hash is [%x]", block.Header.DataHash, protoutil.BlockDataHash(block.Data))
 	}
 
-	return mmcs.verifyHeaderAndMetadata(string(channelID), block)
+	return mmcs.verifyHeaderAndMetadata(channelID.String(), block)
 }
 
 // VerifyBlockAttestation 验证区块中元数据里签名的合法性。
-func (mmcs *MSPMessageCryptoService) VerifyBlockAttestation(channelID string, block *pbcommon.Block) error {
+func (mmcs *MSPMessageCryptoService) VerifyBlockAttestation(channelID common.ChannelID, block *pbcommon.Block) error {
 	if block == nil {
 		return vars.NewPathError(fmt.Sprintf("invalid block on channel [%s], it should not be empty", channelID))
 	}
@@ -102,7 +102,7 @@ func (mmcs *MSPMessageCryptoService) VerifyBlockAttestation(channelID string, bl
 		return vars.NewPathError(fmt.Sprintf("the no.%d block on channel [%s] does not have metadata", block.Header.Number, channelID))
 	}
 
-	return mmcs.verifyHeaderAndMetadata(channelID, block)
+	return mmcs.verifyHeaderAndMetadata(channelID.String(), block)
 }
 
 func (mmcs *MSPMessageCryptoService) Sign(message []byte) ([]byte, error) {

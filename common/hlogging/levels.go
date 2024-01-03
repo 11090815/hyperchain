@@ -13,7 +13,7 @@ import (
 
 const DisabledLevel = zapcore.Level(math.MinInt8)
 
-var loggerNameRegexp = regexp.MustCompile(`^[[:alnum:]@_#:-]+(\.[[:alnum:]_#:-]+)*$`)
+var loggerNameRegexp = regexp.MustCompile(`^[[:alnum:]\.@_#:-]+(\.[[:alnum:]_#:-]+)*$`)
 
 type LoggerLevels struct {
 	mutex        *sync.RWMutex

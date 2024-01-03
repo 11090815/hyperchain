@@ -159,6 +159,12 @@ func (sgm *SignedGossipMessage) String() string {
 		} else if sgm.GossipMessage.GetLeadershipMsg() != nil {
 			typ = "LeadershipMessage"
 			gossipMessage = LeadershipMessageToString(sgm.GossipMessage.GetLeadershipMsg())
+		} else if sgm.GossipMessage.GetConn() != nil {
+			typ = "ConnEstablish"
+			gossipMessage = ConnEstablishToString(sgm.GossipMessage.GetConn())
+		} else if sgm.GossipMessage.GetDataMsg() != nil {
+			typ = "DataMessage"
+			gossipMessage = DataMessageToString(sgm.GossipMessage.GetDataMsg())
 		} else {
 			gossipMessage = sgm.GossipMessage.String()
 			isSimpleMsg = true
