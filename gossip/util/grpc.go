@@ -70,11 +70,11 @@ func CreateGRPCLayer() (port int, gRPCServer *comm.GRPCServer, certs *common.TLS
 	srvConfig := comm.ServerConfig{
 		ConnectionTimeout: time.Second,
 		SecureOptions: comm.SecureOptions{
-			PrivateKeyPEM:     serverKeyPair.PrivateKeyPEM(),
-			PublicKeyPEM:      serverKeyPair.PublicKeyPEM(),
-			UseTLS:            true,
-			RequireClientCert: true,
-			ClientRootCAs:     [][]byte{ca.PublicKeyPEM()},
+			PrivateKeyPEM: serverKeyPair.PrivateKeyPEM(),
+			PublicKeyPEM:  serverKeyPair.PublicKeyPEM(),
+			UseTLS:        true,
+			// RequireClientCert: true,
+			// ClientRootCAs:     [][]byte{ca.PublicKeyPEM()},
 		},
 	}
 
@@ -127,4 +127,7 @@ func GenerateTLSCertificatesOrPanic() tls.Certificate {
 		panic(err)
 	}
 	return cert
+	// clientCert, _ := ca.NewClientCertKeyPair()
+	// cert, _ := tls.X509KeyPair(clientCert.PublicKeyPEM(), clientCert.PrivateKeyPEM())
+	// return cert
 }

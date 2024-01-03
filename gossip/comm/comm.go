@@ -64,8 +64,8 @@ const (
 var errProbe = errors.New("probe")
 
 type CommConfig struct {
-	DialTimeout  time.Duration // 建立连接的超时时间
-	ConnTimeout  time.Duration // 发送消息的超时时间
+	DialTimeout  time.Duration // 建立连接的超时时间，默认 3 秒
+	ConnTimeout  time.Duration // 发送/接收消息的超时时间，默认 2 秒
 	RecvBuffSize int
 	SendBuffSize int
 }
@@ -155,6 +155,7 @@ func (impl *commImpl) GossipStream(stream pbgossip.Gossip_GossipStreamServer) er
 
 	conn := impl.connStore.onConnected(stream, connInfo, impl.metrics)
 
+	// 把收到的消息包装一下，添加对方的 ConnectionInfo 和 connection 网络连接。
 	h := func(signedMsg *protoext.SignedGossipMessage) {
 		impl.msgPublisher.DeMultiplex(&ReceivedMessageImpl{
 			conn:                conn,
@@ -442,18 +443,13 @@ func (impl *commImpl) authenticateRemotePeer(s stream, initiator, isProbe bool) 
 		selfCertHash = certHashFromRawCert(certReference.Load().(*tls.Certificate).Certificate[0])
 	}
 
-	// 无需疑问，签名用的是我自己的密钥，所以不受远程节点的影响
-	signer := func(msg []byte) ([]byte, error) {
-		return impl.idMapper.Sign(msg)
-	}
-
 	if useTLS && len(remoteCertHash) == 0 {
 		impl.logger.Errorf("Remote peer %s didn't provide tls certificate.", remoteAddress)
 		return nil, vars.NewPathError(fmt.Sprintf("failed authenticating remote peer %s, because missing tls certificate", remoteAddress))
 	}
 
 	// 给对方发送我的信息
-	connMsg, err = impl.createConnectionMsg(impl.pkiID, selfCertHash, impl.identity, signer, isProbe)
+	connMsg, err = impl.createConnectionMsg(impl.pkiID, selfCertHash, impl.identity, impl.idMapper.Sign, isProbe)
 	if err != nil {
 		return nil, vars.NewPathError(fmt.Sprintf("failed authenticate remote peer, because %s", err.Error()))
 	}
@@ -581,6 +577,7 @@ func (impl *commImpl) createConnection(endpoint string, expectedPKIID common.PKI
 	if stream, err = client.GossipStream(ctx); err == nil {
 		// 因为我在给 endpoint 发送消息时，发现还没与其建立连接，所以主动与其建立连接，因此我们是作为客户端，对方是服务端
 		// （rpc 服务中，被连接的是服务端，主动发起连接的是客户端）。
+		// 现在开始，双方开始互相验证对方身份的合法性。
 		connInfo, err = impl.authenticateRemotePeer(stream, true, false)
 		if err == nil {
 			pkiID = connInfo.PKIid
