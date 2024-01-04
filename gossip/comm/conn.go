@@ -26,20 +26,26 @@ type connectionStore struct {
 	config          ConnConfig
 	comm            *commImpl
 	pki2Connections map[string]*connection
-	// destinationLocks map[string]*sync.Mutex // pki-id => lock
-	logger    *hlogging.HyperchainLogger
-	isClosing bool
-	mutex     *sync.RWMutex
+	peerLocks       map[string]*sync.Mutex // pki-id => lock
+	logger          *hlogging.HyperchainLogger
+	isClosing       bool
+	mutex           *sync.RWMutex
 }
 
-func newConnectionStore(comm *commImpl, logger *hlogging.HyperchainLogger, config ConnConfig) *connectionStore {
+func newConnectionStore(comm *commImpl, config ConnConfig) *connectionStore {
 	return &connectionStore{
 		config:          config,
 		comm:            comm,
 		pki2Connections: make(map[string]*connection),
-		logger: logger,
-		mutex:  &sync.RWMutex{},
+		mutex:           &sync.RWMutex{},
+		peerLocks:       make(map[string]*sync.Mutex),
 	}
+}
+
+func (cs *connectionStore) setLogger(logger *hlogging.HyperchainLogger) {
+	cs.mutex.Lock()
+	cs.logger = logger
+	cs.mutex.Unlock()
 }
 
 // getConnection 根据给定的 peer 节点的 pki-id，从连接池里获取对应的网络连接，如果不存在，则建立与其之间
@@ -53,10 +59,21 @@ func (cs *connectionStore) getConnection(peer *discovery.NetworkMember) (*connec
 		return nil, vars.NewPathError("connection store is closed")
 	}
 
+	cs.mutex.Lock()
+	peerLock, hasConnected := cs.peerLocks[peer.PKIid.String()]
+	if !hasConnected {
+		peerLock = &sync.Mutex{}
+		cs.peerLocks[peer.PKIid.String()] = peerLock
+	}
+	cs.mutex.Unlock()
+
+	peerLock.Lock()
+
 	cs.mutex.RLock()
 	conn, exists := cs.pki2Connections[peer.PKIid.String()]
 	if exists {
 		cs.mutex.RUnlock()
+		peerLock.Unlock()
 		return conn, nil
 	}
 	cs.mutex.RUnlock()
@@ -67,12 +84,12 @@ func (cs *connectionStore) getConnection(peer *discovery.NetworkMember) (*connec
 	cs.mutex.RLock()
 	isClosing = cs.isClosing
 	cs.mutex.RUnlock()
-
 	if isClosing {
 		return nil, vars.NewPathError("connection store is closed after creating new connection")
 	}
 
 	cs.mutex.Lock()
+	// delete(cs.destinationLocks, peer.PKIid.String())
 	defer cs.mutex.Unlock()
 
 	// 再次检查一下，因为对方在我们尝试连接它时，它也在主动与我们建立连接
@@ -98,6 +115,8 @@ func (cs *connectionStore) getConnection(peer *discovery.NetworkMember) (*connec
 
 	go conn.serviceConnection()
 
+	peerLock.Unlock()
+
 	return conn, nil
 }
 
@@ -107,6 +126,7 @@ func (cs *connectionStore) onConnected(serverStream pbgossip.Gossip_GossipStream
 
 	if c, exists := cs.pki2Connections[connInfo.PKIid.String()]; exists {
 		c.close()
+		// return c
 	}
 
 	conn := newConnection(nil, nil, serverStream, metrics, cs.config)
@@ -247,7 +267,7 @@ func (c *connection) readFromStream(errCh chan error, msgCh chan *protoext.Signe
 			envelope, err := stream.Recv()
 			if err != nil {
 				errCh <- err
-				c.logger.Errorf("Got error when reading from stream, error is \"%s\".", err.Error())
+				c.logger.Errorf("Got error when reading from stream@%s, error is \"%s\".", extractRemoteAddress(stream), err.Error())
 				return
 			}
 			c.metrics.ReceivedMessages.Add(1)

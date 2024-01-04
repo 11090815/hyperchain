@@ -71,6 +71,7 @@ type CommConfig struct {
 }
 
 type commImpl struct {
+	s                  *grpc.Server
 	pkiID              common.PKIid
 	identity           api.PeerIdentity
 	idMapper           identity.Mapper
@@ -95,6 +96,7 @@ type commImpl struct {
 
 func NewCommInstance(s *grpc.Server, certs *common.TLSCertificates, idStore identity.Mapper, peerIdentity api.PeerIdentity, secureDialOpts api.PeerSecureDialOpts, sa api.SecurityAdvisor, commMetrics *metrics.CommMetrics, config CommConfig, dialOpts ...grpc.DialOption) (Comm, error) {
 	inst := &commImpl{
+		s:                  s,
 		pkiID:              idStore.GetPKIidOfCert(peerIdentity),
 		identity:           peerIdentity,
 		idMapper:           idStore,
@@ -102,7 +104,6 @@ func NewCommInstance(s *grpc.Server, certs *common.TLSCertificates, idStore iden
 		deadPeerCh:         make(chan common.PKIid, 100),
 		identityChanges:    make(chan common.PKIid, 1),
 		stopCh:             make(chan struct{}),
-		logger:             util.GetLogger(util.CommLogger, ""),
 		advisor:            sa,
 		tlsCerts:           certs,
 		pubsub:             util.NewPubSub(),
@@ -120,7 +121,7 @@ func NewCommInstance(s *grpc.Server, certs *common.TLSCertificates, idStore iden
 		SendBuffSize: config.SendBuffSize,
 	}
 
-	inst.connStore = newConnectionStore(inst, inst.logger, connConfig)
+	inst.connStore = newConnectionStore(inst, connConfig)
 	pbgossip.RegisterGossipServer(s, inst)
 
 	return inst, nil
@@ -356,7 +357,11 @@ func (impl *commImpl) CloseConn(peer *discovery.NetworkMember) {
 }
 
 func (impl *commImpl) SetLogger(logger *hlogging.HyperchainLogger) {
+	impl.lock.Lock()
 	impl.logger = logger
+	logger_ := logger.With("module", "conn_store")
+	impl.connStore.setLogger(logger_)
+	impl.lock.Unlock()
 }
 
 func (impl *commImpl) Stop() {
@@ -367,6 +372,8 @@ func (impl *commImpl) Stop() {
 	impl.logger.Info("Stopping communicate module.")
 	impl.connStore.shutdown()
 	impl.msgPublisher.Stop()
+	impl.idMapper.Stop()
+	impl.s.Stop()
 	close(impl.stopCh)
 	impl.stopWg.Wait()
 	impl.closeSubscriptions()
